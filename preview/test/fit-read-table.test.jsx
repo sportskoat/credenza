@@ -443,7 +443,7 @@ describe("FitReadTable in the detail body", () => {
     // The picked row is M: chest 116 vs 108 = +8, shoulder 46 vs 45 = +1.
     // The garment number shows twice per row: the head and the bar tag.
     expect(scoped.getAllByText("116cm").length).toBe(2);
-    expect(scoped.getAllByText("108cm").length).toBeGreaterThan(0);
+    expect(scoped.getAllByText(/108cm/).length).toBeGreaterThan(0);
     expect(scoped.getByText("+8cm room")).toBeInTheDocument();
     expect(scoped.getByText("+1cm room")).toBeInTheDocument();
 
@@ -463,7 +463,7 @@ describe("FitReadTable in the detail body", () => {
     // Torso estimate (Kyle 2026-07-30): the profile has no torso number, so
     // the Body length row estimates from the 180cm height — "~" on the
     // number and a plain sentence in the footnote.
-    expect(scoped.getByText("~54cm")).toBeInTheDocument();
+    expect(scoped.getByText(/~54cm/)).toBeInTheDocument();
     expect(
       scoped.getByText(
         "All two inside tolerance. Body length is estimated from your height."
@@ -560,11 +560,11 @@ describe("FitReadTable in the detail body", () => {
     expect(await screen.findByText("No chart")).toBeInTheDocument();
 
     expect(container.querySelector(".cz-fitread")).toBe(null);
-    expect(screen.getByText("No chart for this one yet.")).toBeInTheDocument();
+    expect(screen.getByText("No size chart for this one yet.")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Add a chart photo" })
+      screen.getByRole("button", { name: "Upload chart photo" })
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Type the chart" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Enter chart by hand" })).toBeInTheDocument();
   });
 
   it("stays out of skip categories", () => {
@@ -588,10 +588,11 @@ describe("FitReadTable in the detail body", () => {
     expect(ghost.container.querySelector(".cz-sizing-sheen")).toBe(null);
   });
 
-  it("shows the reading footnote and sweep while a photo read is open", async () => {
-    // The state machine rides the real request, not a timer: the footnote
-    // counts the photos handed to THIS read, and holding the promise open
-    // holds the state.
+  it("shows the reading status line while a photo read is open", async () => {
+    // The state machine rides the real request, not a timer: holding the
+    // promise open holds the state. Spec step 2 (2026-08-08): with no chart
+    // yet, the read hides the size section behind ONE honest status line —
+    // no ghost rows stacking under a wait.
     huntMock.mockResolvedValue(null);
     let finish;
     fileReadMock.mockImplementation(() => new Promise((r) => { finish = r; }));
@@ -606,14 +607,13 @@ describe("FitReadTable in the detail body", () => {
       new File(["xxxx"], "chart.jpg", { type: "image/jpeg" })
     );
 
-    const table = container.querySelector(".cz-fitread");
-    expect(table.classList.contains("is-reading")).toBe(true);
-    expect(within(table).getByText("Reading one photo…")).toBeInTheDocument();
+    expect(screen.getByText("Reading the size chart…")).toBeInTheDocument();
+    expect(container.querySelector(".cz-fitread")).toBe(null);
 
     finish(TOP_TEXT);
     // The read resolved: the reading state must drop without a timer.
     expect(await screen.findByRole("button", { name: "Use this chart" })).toBeInTheDocument();
-    expect(container.querySelector(".cz-fitread.is-reading")).toBe(null);
+    expect(screen.queryByText("Reading the size chart…")).toBe(null);
   });
 });
 
@@ -667,7 +667,11 @@ describe("a measurement the seller does not print", () => {
     const footnote = container.querySelector(".cz-fitread-footnote").textContent;
     expect(footnote).toContain("The seller does not print the shoulder.");
     expect(footnote).toContain("Type it in or read the chart photo.");
-    expect(within(container.querySelector(".cz-fitread")).getAllByText("n/a").length).toBe(1);
+    expect(
+      within(container.querySelector(".cz-fitread")).getAllByText(
+        "not on the seller's chart"
+      ).length
+    ).toBe(1);
   });
 });
 
@@ -735,7 +739,7 @@ describe("typing a chart by hand", () => {
     const { container } = renderBody(fitItem({ sizeNotes: "", sizeChartSource: null }));
     fileReadMock.mockResolvedValue(null);
 
-    await user.click(screen.getByRole("button", { name: "Type the chart" }));
+    await user.click(screen.getByRole("button", { name: "Enter chart by hand" }));
     const grid = container.querySelector(".cz-sizing-fix.is-typed");
     await user.type(within(grid).getByLabelText("Small chest in cm"), "100");
     await user.type(within(grid).getByLabelText("Medium chest in cm"), "104");
@@ -758,11 +762,11 @@ describe("typing a chart by hand", () => {
     const user = userEvent.setup();
     const { container } = renderBody(fitItem({ sizeNotes: "", sizeChartSource: null }));
 
-    await user.click(screen.getByRole("button", { name: "Type the chart" }));
+    await user.click(screen.getByRole("button", { name: "Enter chart by hand" }));
     let grid = container.querySelector(".cz-sizing-fix.is-typed");
     await user.type(within(grid).getByLabelText("Small chest in cm"), "100");
 
-    await user.click(screen.getByRole("button", { name: "Type the chart" }));
+    await user.click(screen.getByRole("button", { name: "Enter chart by hand" }));
     grid = container.querySelector(".cz-sizing-fix.is-typed");
     expect(grid).not.toBe(null);
     expect(within(grid).getByLabelText("Small chest in cm")).toHaveValue("100");
@@ -772,7 +776,7 @@ describe("typing a chart by hand", () => {
     const user = userEvent.setup();
     const { container } = renderBody(fitItem({ sizeNotes: "", sizeChartSource: null }));
 
-    await user.click(screen.getByRole("button", { name: "Type the chart" }));
+    await user.click(screen.getByRole("button", { name: "Enter chart by hand" }));
     await user.type(
       within(container.querySelector(".cz-sizing-fix.is-typed")).getByLabelText(
         "Small chest in cm"
@@ -790,7 +794,7 @@ describe("typing a chart by hand", () => {
     const { container } = renderBody(fitItem({ sizeNotes: "", sizeChartSource: null }));
     fileReadMock.mockResolvedValue(CHART_AUTH_REQUIRED);
 
-    await user.click(screen.getByRole("button", { name: "Type the chart" }));
+    await user.click(screen.getByRole("button", { name: "Enter chart by hand" }));
     const grid = container.querySelector(".cz-sizing-fix.is-typed");
     await user.type(within(grid).getByLabelText("Small chest in cm"), "100");
     await user.type(within(grid).getByLabelText("Medium chest in cm"), "104");
@@ -815,7 +819,7 @@ describe("typing a chart by hand", () => {
     const { container } = renderBody(fitItem({ sizeNotes: "", sizeChartSource: null }));
     fileReadMock.mockResolvedValue(CHART_CAP_REACHED);
 
-    await user.click(screen.getByRole("button", { name: "Type the chart" }));
+    await user.click(screen.getByRole("button", { name: "Enter chart by hand" }));
     const grid = container.querySelector(".cz-sizing-fix.is-typed");
     await user.type(within(grid).getByLabelText("Small chest in cm"), "100");
     await user.type(within(grid).getByLabelText("Medium chest in cm"), "104");
@@ -839,46 +843,40 @@ describe("typing a chart by hand", () => {
   });
 });
 
-// F 2026-08-02: number columns must fit CM worst case ("116.5cm", "+23.0cm")
-// without shrinking the 11px mono font. ch units keep columns aligned across
-// rows (max-content would rag short vs long values on separate row grids).
-// After #42 the desktop panel is a 5-col GRID — floors live on that template,
-// not on flex-item min-widths.
-describe("fit-read number column widths (CM legibility)", () => {
-  it("sizes the three number columns with ch floors on desktop and phone", () => {
-    expect(FIT_CSS).toContain(
-      "grid-template-columns: 70px 1fr max(40px, 8ch) max(40px, 8ch) max(54px, 9ch)"
-    );
-    expect(FIT_CSS).toContain(
-      "grid-template-columns: 54px 1fr max(30px, 8ch) max(30px, 8ch) max(40px, 9ch)"
-    );
-    // Old fixed px tracks must not return — they overflowed "116.5cm".
-    expect(FIT_CSS).not.toContain("grid-template-columns: 70px 1fr 40px 40px 54px");
-    expect(FIT_CSS).not.toContain("grid-template-columns: 54px 1fr 30px 30px 40px");
-  });
-
+// Redesign 2026-08-08: the column grid is gone. Each row is a head line
+// ("garment X · you Y · +Z room") above a taller track. The legibility rule
+// survives: mono numbers, nowrap, tabular figures, no font shrink.
+describe("fit-read number legibility (2026-08-08 redesign)", () => {
   it("keeps mono numbers nowrap + tabular at 11px (no font shrink)", () => {
-    const block = FIT_CSS.match(
-      /\.cz-fitread-theirs,\s*\.cz-fitread-yours,\s*\.cz-fitread-ease\s*\{[^}]+\}/
-    );
-    expect(block, "number cell rule missing").toBeTruthy();
+    const block = FIT_CSS.match(/\.cz-fitread-nums\s*\{[^}]+\}/);
+    expect(block, "row-head number rule missing").toBeTruthy();
+    expect(block[0]).toContain("font-family: var(--cz-mono)");
     expect(block[0]).toContain("font-size: 11px");
     expect(block[0]).toContain("font-variant-numeric: tabular-nums");
     expect(block[0]).toContain("white-space: nowrap");
-    expect(block[0]).toContain("text-align: right");
   });
 
-  it("puts ch floors on the post-#42 dpanel 5-col grid (not dead flex floors)", () => {
-    expect(FIT_CSS).toContain(
-      "grid-template-columns: 84px minmax(120px, 1fr) max(48px, 8ch) max(48px, 8ch) max(54px, 9ch)"
-    );
-    // Pre-#42 flex-item floors must stay gone — they are dead on a grid row.
-    expect(FIT_CSS).not.toMatch(
-      /\.cz-dpanel \.cz-fitread-theirs,[\s\S]*?min-width:\s*max\(40px,\s*8ch\)/
-    );
-    expect(FIT_CSS).not.toMatch(
-      /\.cz-dpanel \.cz-fitread-ease\s*\{[^}]*min-width:\s*max\(54px,\s*9ch\)/
-    );
+  it("drops the old five-cell column grid everywhere", () => {
+    const row = FIT_CSS.match(/\.cz-fitread-row\s*\{[^}]+\}/);
+    expect(row, "fitread row rule missing").toBeTruthy();
+    expect(row[0]).not.toContain("grid-template-columns");
+    const dpanel = FIT_CSS.match(/\.cz-dpanel \.cz-fitread-row\s*\{[^}]+\}/);
+    expect(dpanel, "dpanel row rule missing").toBeTruthy();
+    expect(dpanel[0]).not.toContain("grid-template-columns");
+    // The 44px touch floor on the panel row stays.
+    expect(dpanel[0]).toContain("min-height: 44px");
+  });
+
+  it("draws the garment-centered ruler: rail, center tick, dashed band", () => {
+    expect(FIT_CSS).toMatch(/\.cz-fitread-rail\s*\{[^}]+\}/);
+    expect(FIT_CSS).toMatch(/\.cz-fitread-garment-tick\s*\{[^}]+\}/);
+    const dashed = FIT_CSS.match(/\.cz-fitread-band\.is-dashed\s*\{[^}]+\}/);
+    expect(dashed, "dashed band rule missing").toBeTruthy();
+    expect(dashed[0]).toContain("dashed");
+    // The YOU line slides between sizes (Kyle 2026-07-31: smooth, not a jump).
+    const you = FIT_CSS.match(/\.cz-fitread-you\s*\{[^}]+\}/);
+    expect(you, "YOU line rule missing").toBeTruthy();
+    expect(you[0]).toContain("transition: left");
   });
 
   it("restores a 44px hit area on quiet chart links without growing the visual", () => {
@@ -897,19 +895,19 @@ describe("fit-read number column widths (CM legibility)", () => {
 // theme's amber tokens in both palettes — a raw hex would rot on Blackout.
 describe("three-tier orange paints from theme tokens", () => {
   const HEX = /#[0-9a-fA-F]{3,8}\b/;
-  it("soft track zone, mark, and ease use var(--cz-warn*) and no hex", () => {
+  it("soft track zone, YOU line, and room number use var(--cz-warn*) and no hex", () => {
     const zone = FIT_CSS.match(/\.cz-fitread-soft\s*\{[^}]+\}/);
     expect(zone, "soft zone rule missing").toBeTruthy();
     expect(zone[0]).toContain("var(--cz-warn)");
     expect(zone[0]).not.toMatch(HEX);
 
-    const mark = FIT_CSS.match(/\.cz-fitread-mark\.is-soft\s*\{[^}]+\}/);
-    expect(mark, "soft mark rule missing").toBeTruthy();
+    const mark = FIT_CSS.match(/\.cz-fitread-you\.is-soft\s*\{[^}]+\}/);
+    expect(mark, "soft YOU line rule missing").toBeTruthy();
     expect(mark[0]).toContain("var(--cz-warn)");
     expect(mark[0]).not.toMatch(HEX);
 
-    const ease = FIT_CSS.match(/\.cz-fitread-ease\.is-soft\s*\{[^}]+\}/);
-    expect(ease, "soft ease rule missing").toBeTruthy();
+    const ease = FIT_CSS.match(/\.cz-fitread-diff\.is-soft\s*\{[^}]+\}/);
+    expect(ease, "soft room-number rule missing").toBeTruthy();
     expect(ease[0]).toContain("var(--cz-warn-ink)");
     expect(ease[0]).not.toMatch(HEX);
   });

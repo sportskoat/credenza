@@ -74,7 +74,9 @@ describe("FitBlock chart hunt", () => {
     renderBody(item, { onSaveEdit });
 
     // No click: the sizing block is always visible, so the hunt starts here.
-    expect(await screen.findByText("READING CHART")).toBeInTheDocument();
+    // Spec step 2 (2026-08-08): the wait is ONE honest status line, not the
+    // old bare-"-" wall under a READING CHART rail.
+    expect(await screen.findByText("Looking for the size chart photo…")).toBeInTheDocument();
     resolveHunt({ text: CHART_TEXT, source: { via: "desc-photos", photos: 10 } });
 
     // The found chart writes into its own item field through the normal path.
@@ -123,7 +125,7 @@ describe("FitBlock chart hunt", () => {
     renderBody(item);
 
     // The empty state shows at once; no "looking", no paid read.
-    expect(await screen.findByText("No chart for this one yet.")).toBeInTheDocument();
+    expect(await screen.findByText("No size chart for this one yet.")).toBeInTheDocument();
     expect(huntMock).not.toHaveBeenCalled();
   });
 
@@ -230,7 +232,7 @@ describe("FitBlock chart hunt", () => {
     // visible with no tap (Kyle 2026-07-29).
     expect(within(section).getByLabelText("Custom item size")).toBeInTheDocument();
     expect(
-      screen.getByText("No chart for this one yet.")
+      screen.getByText("No size chart for this one yet.")
     ).toBeInTheDocument();
     expect(huntMock).toHaveBeenCalledTimes(1);
   });
@@ -242,16 +244,16 @@ describe("FitBlock chart hunt", () => {
     huntMock.mockImplementation(() => new Promise((resolve) => { resolveHunt = resolve; }));
     const item = noChartItem("hunt-stuck");
     const { unmount } = renderBody(item);
-    expect(await screen.findByText("READING CHART")).toBeInTheDocument();
+    expect(await screen.findByText("Looking for the size chart photo…")).toBeInTheDocument();
     unmount();
     // Stale resolve must not throw; hunting cleared on unmount.
     resolveHunt(null);
 
     huntMock.mockResolvedValue(null);
     renderBody(item);
-    // A completed null hunt must clear the spinner (retry allowed after abort).
+    // A completed null hunt must clear the status line (retry allowed after abort).
     await waitFor(() => {
-      expect(screen.queryByText("READING CHART")).not.toBeInTheDocument();
+      expect(screen.queryByText("Looking for the size chart photo…")).not.toBeInTheDocument();
     });
     expect(await screen.findByText("No chart")).toBeInTheDocument();
   });
@@ -274,9 +276,11 @@ describe("FitBlock chart hunt", () => {
     });
 
     await screen.findByText("No chart");
-    expect(screen.getByText("your usual · not verified")).toBeInTheDocument();
-    expect(screen.getAllByText("Large").length).toBeGreaterThanOrEqual(1);
+    // Spec step 3 (2026-08-08): the usual size surfaces in words on the pick
+    // screen, and the chips stay tappable — but nothing is green pre-chart.
+    expect(screen.getByText("Your usual size is Large.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Large" })).toBeInTheDocument();
+    expect(document.querySelector(".cz-detail-size-choice.is-recommended")).toBe(null);
   });
 
   it("keeps one cell height and one look for the fifth box (Kyle 2026-07-31)", async () => {

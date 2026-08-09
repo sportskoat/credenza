@@ -115,7 +115,7 @@ describe("out of cards, chart in the seller's product details", () => {
     renderBody(chartless());
 
     expect(await screen.findByText("No chart")).toBeInTheDocument();
-    expect(screen.getByText("No chart for this one yet.")).toBeInTheDocument();
+    expect(screen.getByText("No size chart for this one yet.")).toBeInTheDocument();
     // Kyle 2026-08-03: no album read on any card now, cards left or not.
     expect(screen.queryByText(/Read the \d+ album photos?/)).toBe(null);
   });

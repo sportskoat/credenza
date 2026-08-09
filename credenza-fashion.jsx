@@ -5900,9 +5900,90 @@ export function resolveDisplaySize(item, bodyProfile, fitPrefs = null) {
   };
 }
 
+// Shoe size tokens (spec step 3, 2026-08-08). Men's US ↔ EU is EU = US + 33,
+// which lands every row of the standard men's table (US 8 = EU 41, US 10 =
+// EU 43). A bare number reads as EU from 35 up and as US up to 15: shoe
+// listings print EU as a bare number far more often than US.
+export function parseShoeSizeToken(value) {
+  const s = String(value || "").trim().toUpperCase();
+  if (!s) return null;
+  const eu = s.match(/^EU\s?(\d{2}(?:\.5)?)$/);
+  if (eu) return { system: "eu", n: parseFloat(eu[1]) };
+  const us = s.match(/^US\s?(\d{1,2}(?:\.5)?)$/);
+  if (us) return { system: "us", n: parseFloat(us[1]) };
+  const bare = s.match(/^(\d{1,2}(?:\.5)?)$/);
+  if (bare) {
+    const n = parseFloat(bare[1]);
+    if (n >= 35) return { system: "eu", n };
+    if (n <= 15) return { system: "us", n };
+  }
+  return null;
+}
+
+function shoeSizeLabel(system, n) {
+  return (system === "eu" ? "EU " : "US ") + n;
+}
+
+// The converted partner: EU 43 → US 10, US 10 → EU 43.
+export function shoeSizeAlt(system, n) {
+  if (system === "eu") return { system: "us", n: n - 33 };
+  if (system === "us") return { system: "eu", n: n + 33 };
+  return null;
+}
+
+// Chip face for the no-chart pick screen: "EU 43 · US 10". Empty when the
+// token is not a shoe size, so letter sizes keep their plain mark.
+export function shoeChipLabel(value) {
+  const p = parseShoeSizeToken(value);
+  if (!p) return "";
+  const alt = shoeSizeAlt(p.system, p.n);
+  return shoeSizeLabel(p.system, p.n) + " · " + shoeSizeLabel(alt.system, alt.n);
+}
+
+// The usual-size sentence, converted: "US 10 (about EU 43)". Empty when the
+// saved usual is not a shoe size.
+export function shoeUsualLabel(value) {
+  const p = parseShoeSizeToken(value);
+  if (!p) return "";
+  const alt = shoeSizeAlt(p.system, p.n);
+  return shoeSizeLabel(p.system, p.n) + " (about " + shoeSizeLabel(alt.system, alt.n) + ")";
+}
+
+// The chip run must cover the buyer's converted usual size (Kyle 2026-08-08:
+// "a US 10 needs chips up to EU 43+, not 39"). The chips speak the LISTING's
+// scale, so the usual converts into the run's own system before the compare.
+// Extends only a shoe-like run, inserts in numeric order, and matches the
+// run's token style (bare number vs labelled). Letter runs pass through.
+export function extendShoeRun(runValues, usualSize) {
+  const run = Array.isArray(runValues) ? runValues.slice() : [];
+  const u = parseShoeSizeToken(usualSize);
+  if (!u) return run;
+  const parsed = run.map((v) => parseShoeSizeToken(v));
+  const first = parsed.find(Boolean);
+  if (!first) return run;
+  const sys = first.system;
+  const inRunScale = sys === u.system ? u : shoeSizeAlt(u.system, u.n);
+  if (parsed.some((p) => p && p.system === sys && p.n === inRunScale.n)) return run;
+  const bareStyle = run.some(
+    (v, i) => parsed[i] && String(v).trim().toUpperCase() === String(parsed[i].n)
+  );
+  const token = bareStyle ? String(inRunScale.n) : shoeSizeLabel(sys, inRunScale.n);
+  const out = [];
+  let inserted = false;
+  for (let i = 0; i < run.length; i += 1) {
+    const p = parsed[i];
+    if (!inserted && p && (p.system !== sys || p.n > inRunScale.n)) {
+      out.push(token);
+      inserted = true;
+    }
+    out.push(run[i]);
+  }
+  if (!inserted) out.push(token);
+  return out;
+}
+
 // Size options: listing variants first, then common apparel/shoe sizes.
-export function sizeSuggestionsFor(item) {
-  const group = (item?.variants || []).find((g) => /size|尺码|尺寸/i.test(g.title || ""));
+export function sizeSuggestionsFor(item) {  const group = (item?.variants || []).find((g) => /size|尺码|尺寸/i.test(g.title || ""));
   const fromVariants = group
     ? group.values.map((v) => String(v || "").trim()).filter(Boolean)
     : [];

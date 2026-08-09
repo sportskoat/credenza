@@ -982,7 +982,7 @@ describe("DetailBody size tap drives the numbers", () => {
     const { container } = render(body(item("tap-table"), chestOnly()));
 
     const theirs = () =>
-      [...container.querySelectorAll(".cz-fitread-theirs")].map((n) => n.textContent);
+      [...container.querySelectorAll(".cz-fitread-garment-tag")].map((n) => n.textContent);
     expect(theirs()).toContain("116cm");
 
     tapSize(container, "X-Large");
@@ -1101,9 +1101,12 @@ describe("DetailBody compact size chips (no chart)", () => {
     });
   const chipRow = (container) => container.querySelector(".cz-detail-size-choices");
 
-  it("prints the short mark on the chip, the full word in the aria-label", () => {
+  it("prints the short mark on the chip, the full word in the aria-label", async () => {
     const { container } = render(body(chipItem("chip-compact", ["M", "L", "XL", "XXL"])));
 
+    // Spec step 2 (2026-08-08): while the hunt runs the size section hides
+    // behind one status line. The chips arrive with the settled no-chart state.
+    await screen.findByText("No chart");
     const row = chipRow(container);
     expect(row).not.toBeNull();
     const labels = [...row.querySelectorAll("button")].map((b) => b.textContent);
@@ -1113,16 +1116,18 @@ describe("DetailBody compact size chips (no chart)", () => {
     expect(within(row).getByRole("button", { name: "Medium" }).textContent).toBe("M");
   });
 
-  it("prints Free for a 均码 token", () => {
+  it("prints Free for a 均码 token", async () => {
     const { container } = render(body(chipItem("chip-free", ["均码"])));
 
+    await screen.findByText("No chart");
     const chip = within(chipRow(container)).getByRole("button", { name: "Free size" });
     expect(chip.textContent).toBe("Free");
   });
 
-  it("shows Clear size once a chip is picked, and the tap still picks", () => {
+  it("shows Clear size once a chip is picked, and the tap still picks", async () => {
     const { container } = render(body(chipItem("chip-clear", ["M", "L", "XL", "XXL"])));
 
+    await screen.findByText("No chart");
     expect(screen.queryByRole("button", { name: "Clear size" })).toBeNull();
     fireEvent.click(within(chipRow(container)).getByRole("button", { name: "X-Large" }));
     // Oom 2026-07-29: the proof row is the full row — a sixth box appears

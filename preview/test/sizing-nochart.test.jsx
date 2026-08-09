@@ -102,31 +102,35 @@ describe("§3 no-chart state", () => {
   it("asks for the chart photo once the hunt comes back empty", async () => {
     renderBody(chartless());
 
-    // Provenance names the fallback only when a usual size exists to fall
-    // back on (Oom review 2026-07-29: beside "no usual size saved" the line
-    // contradicted itself). This fixture saves no usual size, so the slot
-    // stays empty.
+    // Spec step 3 (2026-08-08): the plain no-chart state is the locked pick
+    // screen — the missing-chart line, chips, the truthful helper, and the
+    // same two chart-entry actions Settings carries. No green, no wall.
     expect(await screen.findByText("No chart")).toBeInTheDocument();
-    expect(screen.queryByText("FELL BACK TO YOUR USUAL")).toBeNull();
     expect(
-      screen.getByText("No chart for this one yet.")
+      screen.getByText("No size chart for this one yet.")
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Add a chart photo" })).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "Add a chart photo" })).toHaveLength(1);
+    expect(screen.getByText("Pick a size. It's saved on this card for when you order.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Upload chart photo" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Enter chart by hand" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Upload chart photo" })).toHaveLength(1);
+    // The bottom chart-actions row would say the same thing twice — it hides.
+    expect(screen.queryByRole("button", { name: "Add a chart photo" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Type the chart" })).toBeNull();
     expect(document.querySelector(".cz-sizing-nochart")).not.toBe(null);
   });
 
-  it("renders the usual size flat, and says it is not verified", async () => {
+  it("names the usual size in words, never as a shimmering AI pick", async () => {
     renderBody(chartless({ variants: [{ title: "Size", values: ["S", "M", "L"] }] }), {
       bodyProfile: { height: "183", weight: "75", chest: "99", usualTops: "L" },
     });
 
     expect(await screen.findByText("No chart")).toBeInTheDocument();
-    expect(screen.getByText("your usual · not verified")).toBeInTheDocument();
-    // A usual size is better than a dash, but it must never shimmer like an
-    // AI pick. The shimmer class is the tell.
-    const value = document.querySelector(".cz-sizing-value");
-    expect(value.className).not.toContain("t-shimmer");
+    expect(screen.getByText("Your usual size is Large.")).toBeInTheDocument();
+    // The old big-letter value row is gone — nothing on this screen can
+    // shimmer like an AI pick, because there is no pick without a chart.
+    expect(document.querySelector(".cz-sizing-value")).toBe(null);
+    // And no chip wears the green recommended mark before a chart exists.
+    expect(document.querySelector(".cz-detail-size-choice.is-recommended")).toBe(null);
   });
 
   // Kyle 2026-08-03: "We got a big Fit section where there's nothing to do."
@@ -160,10 +164,53 @@ describe("§3 no-chart state", () => {
     renderBody(chartless(), { bodyProfile: {} });
 
     expect(await screen.findByText("No chart")).toBeInTheDocument();
-    expect(screen.getByText("no usual size saved")).toBeInTheDocument();
-    expect(document.querySelector(".cz-sizing-value.is-empty")).not.toBe(null);
-    // With no size to name, the pane prints no size line at all.
+    // With no size to name, the pane prints no size line at all — the helper
+    // and the two chart-entry actions still stand.
     expect(document.querySelector(".cz-sizing-picked")).toBe(null);
+    expect(screen.getByText("Pick a size. It's saved on this card for when you order.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Upload chart photo" })).toBeInTheDocument();
+  });
+
+  // Spec step 3 (2026-08-08), Kyle's shoe card: "(40) (41) (42) means nothing
+  // to a US buyer." Every chip shows both systems, the run extends to cover
+  // the saved usual, and no chip goes green before a chart exists.
+  it("shoes: chips show both systems and the run covers the usual", async () => {
+    renderBody(
+      chartless({
+        category: "shoes",
+        variants: [{ title: "Size", values: ["40", "41", "42"] }],
+      }),
+      { bodyProfile: { usualShoes: "US 10" } }
+    );
+
+    expect(await screen.findByText("No chart")).toBeInTheDocument();
+    expect(screen.getByText("Your usual size is US 10 (about EU 43).")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "EU 40 · US 7" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "EU 42 · US 9" })).toBeInTheDocument();
+    // The run held 40–42; the buyer's converted usual adds the EU 43 chip.
+    expect(screen.getByRole("button", { name: "EU 43 · US 10" })).toBeInTheDocument();
+    expect(document.querySelector(".cz-detail-size-choice.is-recommended")).toBe(null);
+  });
+
+  it("shoes: one tap saves the size on the card", async () => {
+    const onSaveEdit = vi.fn();
+    renderBody(
+      chartless({
+        category: "shoes",
+        variants: [{ title: "Size", values: ["40", "41", "42"] }],
+      }),
+      { bodyProfile: { usualShoes: "US 10" }, onSaveEdit }
+    );
+
+    expect(await screen.findByText("No chart")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "EU 43 · US 10" }));
+    // Last tap wins, saved at once — the one-tap save rule (Kyle 2026-08-08).
+    await waitFor(() =>
+      expect(onSaveEdit).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ size: "43" })
+      )
+    );
   });
 
   it("keeps item and profile sizing in the Size and fit section", async () => {
@@ -183,9 +230,10 @@ describe("§3 no-chart state", () => {
     // your own changes nothing on this card. Profile still owns the route.
     expect(screen.queryByRole("button", { name: "Edit my measurements" })).toBe(null);
     expect(onOpenSizes).not.toHaveBeenCalled();
-    // The two ways to get a chart are what this state offers instead.
-    expect(screen.getByRole("button", { name: "Add a chart photo" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Type the chart" })).toBeInTheDocument();
+    // The two ways to get a chart are what this state offers instead (spec
+    // step 3, 2026-08-08: same pair as Settings, full-width on the screen).
+    expect(screen.getByRole("button", { name: "Upload chart photo" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Enter chart by hand" })).toBeInTheDocument();
   });
 
   // Kyle 2026-08-03: "if it doesnt catch it the first time it never does, take
@@ -446,10 +494,11 @@ describe("§3 read and confirm", () => {
     await user.upload(document.querySelector(".cz-detail-chart-file"), fakePhoto());
     await user.click(await screen.findByRole("button", { name: "Not this one" }));
 
-    // Back at the ask: the upload button returns, nothing was saved. This
+    // Back at the ask: the pick screen returns, nothing was saved. This
     // fixture saves no usual size, so the fallback line stays empty (Oom
-    // review 2026-07-29).
-    expect(await screen.findByRole("button", { name: "Add a chart photo" })).toBeInTheDocument();
+    // review 2026-07-29). The pick screen's upload action replaces the old
+    // bottom-row "Add a chart photo" (spec step 3, 2026-08-08).
+    expect(await screen.findByRole("button", { name: "Upload chart photo" })).toBeInTheDocument();
     expect(screen.queryByText("FELL BACK TO YOUR USUAL")).toBeNull();
     // The read saved itself, so rejecting it must clear the card again.
     expect(onSaveEdit).toHaveBeenLastCalledWith(expect.any(String), {

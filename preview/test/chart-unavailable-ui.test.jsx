@@ -315,11 +315,11 @@ describe("the silent hunt cannot reach the reader", () => {
     }
   });
 
-  it("keeps saying 'No chart for this one yet.' when the hunt really found none", async () => {
+  it("keeps saying 'No size chart for this one yet.' when the hunt really found none", async () => {
     huntMock.mockResolvedValue(null);
     renderBody(chartless());
 
-    expect(await screen.findByText("No chart for this one yet.")).toBeInTheDocument();
+    expect(await screen.findByText("No size chart for this one yet.")).toBeInTheDocument();
     expect(screen.queryByText("Not answering")).toBe(null);
   });
 });

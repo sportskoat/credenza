@@ -271,7 +271,7 @@ describe("the card a signed-out visitor gets back", () => {
     renderCard(emptyCard());
 
     expect(await screen.findByText("No chart")).toBeInTheDocument();
-    expect(screen.getByText("No chart for this one yet.")).toBeInTheDocument();
+    expect(screen.getByText("No size chart for this one yet.")).toBeInTheDocument();
     expect(screen.queryByText("Needs sign-in")).toBeNull();
   });
 

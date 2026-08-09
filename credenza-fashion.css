@@ -2226,23 +2226,24 @@
   font-weight: 700;
 }
 
-/* The recommended row inverts to the action fill (handoff turn 3 §5); its
-   size cell takes the on-fill money green (#7ee2a8 on the dark fill, the
-   dark ramp on Blackout's near-white fill — the token already tracks it). */
+/* 2026-08-08 spec step 1 item 5: the recommended row is calm — a thin left
+   mark in the money green plus a small "Recommended" tag under the size.
+   No full-row green fill landing at a different height on every card. */
 .cz-size-chart-table tr.is-rec th,
 .cz-size-chart-table tr.is-rec td {
-  background: var(--cz-action-fill);
-  color: var(--cz-action-text);
   font-weight: 700;
-  border-bottom-color: transparent;
 }
 .cz-size-chart-table tr.is-rec th {
-  color: var(--cz-money-on-photo);
+  box-shadow: inset 3px 0 0 var(--cz-money);
   padding-left: 8px;
-  border-radius: 8px 0 0 8px;
 }
-.cz-size-chart-table tr.is-rec td:last-child {
-  border-radius: 0 8px 8px 0;
+.cz-size-chart-rec-tag {
+  display: block;
+  font-family: var(--cz-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--cz-money);
 }
 
 /* Runner-up size row — quieter highlight than the pick. */
@@ -10530,7 +10531,10 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   background: var(--cz-seg);
 }
 .cz-fit-ladder-seg.is-on {
-  background: var(--cz-money);
+  /* 2026-08-08 spec step 1 item 6: the ladder fills in grey ink, not green.
+     Progress is not a size pick; green stays reserved for money and the
+     recommended size. */
+  background: var(--cz-ink);
 }
 .cz-fit-ladder-rows {
   list-style: none;
@@ -15387,6 +15391,65 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   padding-top: 16px;
 }
 
+/* Spec step 1 item 4 (2026-08-08): the pinned "Your size · M" line. One calm
+   green line at the top of the size area; it holds its place while the
+   blocks under it swap (measure ask, hunt, chart states). */
+.cz-your-size {
+  margin: 0 0 8px;
+  font-family: var(--cz-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--cz-ink);
+}
+/* Green only means money or a recommendation (locked ruling). Only the
+   chart-based pick turns this line green. */
+.cz-your-size.is-rec {
+  color: var(--cz-money);
+}
+.cz-your-size b {
+  font-weight: 700;
+}
+
+/* Spec step 2 (2026-08-08): the one honest status line while a chart is on
+   the way. It replaces the whole size section during the wait, so it carries
+   a calm pulse, not a wall. The line names the real step. */
+.cz-size-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 14px 0;
+  font-family: var(--cz-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--cz-sub);
+}
+.cz-size-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--cz-sub);
+  animation: cz-size-status-pulse 1400ms var(--ease-out) infinite;
+  flex: none;
+}
+@keyframes cz-size-status-pulse {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cz-size-status-dot {
+    animation: none;
+    opacity: 1;
+  }
+}
+
 /* Phone: the title, the facts block, the first section and the sizing block
    each carried their own 16-18px, so four separate gaps stacked into one dead
    band under the title (Kyle 2026-07-28). The phone keeps one gap. */
@@ -16256,6 +16319,29 @@ input.cz-sizing-cell.is-custom:focus-visible {
   text-wrap: pretty;
 }
 
+/* Spec step 3 (2026-08-08): the pick screen's helper names what a tap is
+   for. It never claims the size leaves the card — Kyle: the size does NOT
+   go to the agent. */
+.cz-sizing-helper {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--cz-sub);
+  text-wrap: pretty;
+}
+
+/* The two chart-entry actions, full-width and stacked — the same pair the
+   Settings tab carries. */
+.cz-sizing-nochart-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+.cz-sizing-nochart-actions .cz-sizing-action {
+  width: 100%;
+}
+
 /* WhatsApp contact when no validated chart recommendation (Kyle copy). */
 .cz-sizing-whatsapp-copy {
   margin-top: 10px;
@@ -16378,6 +16464,9 @@ input.cz-sizing-cell.is-custom:focus-visible {
   align-items: baseline;
   justify-content: space-between;
   gap: 10px;
+  /* Narrow panels: the number line wraps under the name instead of
+     clipping at the panel edge. */
+  flex-wrap: wrap;
 }
 
 .cz-fitread-nums {
@@ -20900,6 +20989,10 @@ input.cz-sizing-fix-size {
   }
   .cz-dpanel .cz-fitread-band {
     background: rgba(74, 222, 128, 0.34);
+  }
+  /* The dark-panel green above must not repaint a dashed (no-verdict) row. */
+  .cz-dpanel .cz-fitread-band.is-dashed {
+    background: transparent;
   }
   .cz-dpanel .cz-fitread-garment-tick {
     background: var(--cz-faint);

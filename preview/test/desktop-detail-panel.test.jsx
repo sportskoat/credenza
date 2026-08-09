@@ -681,8 +681,8 @@ describe("DesktopDetailPanel (Fix B)", () => {
       expect(el).toBeTruthy();
       return el;
     });
-    expect(bars.querySelectorAll(".cz-fitread-mark").length).toBeGreaterThan(0);
-    const marksBefore = [...bars.querySelectorAll(".cz-fitread-mark")].map(
+    expect(bars.querySelectorAll(".cz-fitread-you").length).toBeGreaterThan(0);
+    const marksBefore = [...bars.querySelectorAll(".cz-fitread-you")].map(
       (n) => n.style.left
     );
 
@@ -698,7 +698,7 @@ describe("DesktopDetailPanel (Fix B)", () => {
     await user.click(pickRow);
 
     const marksAfter = [
-      ...document.querySelectorAll(".cz-fitread .cz-fitread-mark"),
+      ...document.querySelectorAll(".cz-fitread .cz-fitread-you"),
     ].map((n) => n.style.left);
     expect(marksAfter.length).toBe(marksBefore.length);
     expect(marksAfter.some((left, i) => left !== marksBefore[i])).toBe(true);

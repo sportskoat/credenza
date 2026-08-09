@@ -33,7 +33,15 @@ export default function SizeChartTable({ chart, units, highlight, highlightAlt }
               row.size === highlight ? "is-rec" : row.size === highlightAlt ? "is-alt" : undefined
             }
           >
-            <th scope="row">{row.size}</th>
+            {/* 2026-08-08 spec step 1 item 5: calm recommended row — a thin
+                left mark plus the word "Recommended", no full-row green fill
+                that lands at a different height on every card. */}
+            <th scope="row">
+              {row.size}
+              {row.size === highlight ? (
+                <span className="cz-size-chart-rec-tag">Recommended</span>
+              ) : null}
+            </th>
             {cols.map(([key]) => (
               <td key={key}>{row[key] != null ? formatMeasure(row[key], units) : "-"}</td>
             ))}

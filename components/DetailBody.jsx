@@ -40,6 +40,9 @@ import {
   formatMeasure,
   compactSizeToken,
   formatSizeToken,
+  shoeChipLabel,
+  shoeUsualLabel,
+  extendShoeRun,
   itemPhotoList,
   DETAIL_PHOTO_CAP,
   linkButtons,
@@ -1254,6 +1257,19 @@ function SizingBlockNoChart({
   needsClear = false,
   onClearChart,
   needsSignIn = false,
+  // Spec step 3 (2026-08-08): the caller computes the plain no-chart case
+  // (no blocked reason, no WhatsApp, no fail code) once, and this block then
+  // renders the locked pick screen instead of the old fallback wall.
+  pickScreen = false,
+  category = "",
+  runValues = [],
+  chosenSize = "",
+  customSize = "",
+  onCustomChange = null,
+  onCommit = null,
+  onPick = null,
+  onUpload = null,
+  onEnterManual = null,
   // FIX 0: hunt (or prior read) hit chart-vision 401/403. Distinct from the
   // free-card-gate needsSignIn path, which keeps its own finish-card copy.
   chartAuthBlocked = false,
@@ -1297,6 +1313,61 @@ function SizingBlockNoChart({
     !chartRateBlocked &&
     !chartOffBlocked &&
     !needsClear;
+
+  // Spec step 3, sized categories (LOCKED by Kyle 2026-08-08, after panel
+  // consult). The plain no-chart Fit tab: the missing-chart line, the saved
+  // usual size converted into the listing's scale, one row of chips in the
+  // listing's scale (shoe chips show BOTH systems — "EU 43 · US 10"), the
+  // truthful helper (the size stays on this card; it never goes to the
+  // agent), and the same two chart-entry actions Settings carries. No green
+  // anywhere: no chart means no recommendation. Nothing else on the screen.
+  if (pickScreen) {
+    const pickHero = formatSizeToken(usualSize) || usualSize || "";
+    const shoeUsual = category === "shoes" ? shoeUsualLabel(usualSize) : "";
+    const pickRun =
+      category === "shoes" ? extendShoeRun(runValues, usualSize) : runValues;
+    return (
+      <section className="cz-sizing cz-sizing-nochart" aria-label="Sizing recommendation">
+        <div className="cz-sizing-head">
+          <span className="cz-sizing-dot" aria-hidden="true" />
+          <span className="cz-sizing-kicker">No chart</span>
+        </div>
+        <p className="cz-sizing-nochart-body">
+          {listingInfo === "no-measurements"
+            ? "This seller posted no measurements. Pick a size yourself. I cannot recommend one."
+            : "No size chart for this one yet."}
+        </p>
+        {pickHero ? (
+          <p className="cz-sizing-picked">
+            {isManual
+              ? `You picked ${pickHero}.`
+              : `Your usual size is ${shoeUsual || pickHero}.`}
+          </p>
+        ) : null}
+        <SizeChoiceEditor
+          chosenSize={chosenSize}
+          recommendedSize=""
+          runValues={pickRun}
+          customSize={customSize}
+          onCustomChange={onCustomChange}
+          onCommit={onCommit}
+          onPick={onPick}
+          dualShoe={category === "shoes"}
+        />
+        <p className="cz-sizing-helper">
+          Pick a size. It's saved on this card for when you order.
+        </p>
+        <div className="cz-sizing-nochart-actions">
+          <button type="button" className="cz-sizing-action" onClick={onUpload}>
+            Upload chart photo
+          </button>
+          <button type="button" className="cz-sizing-action" onClick={onEnterManual}>
+            Enter chart by hand
+          </button>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="cz-sizing cz-sizing-nochart" aria-label="Sizing recommendation">
@@ -1807,7 +1878,7 @@ function FitReadTrack({
         />
       ) : null}
       {theirs != null ? (
-        <span className="cz-fitread-garment">
+        <span className="cz-fitread-garment" style={{ left: "50%" }}>
           <span className="cz-fitread-garment-tick" />
           <span className="cz-fitread-garment-tag">{formatMeasure(theirs, units)}</span>
         </span>
@@ -2411,7 +2482,7 @@ function CustomSizeBox({ className, value, shownValue, onChange, onCommit, place
   );
 }
 
-function SizeChoiceEditor({ chosenSize, recommendedSize, runValues, choicesHidden = false, customSize, onCustomChange, onCommit, onPick }) {
+function SizeChoiceEditor({ chosenSize, recommendedSize, runValues, choicesHidden = false, customSize, onCustomChange, onCommit, onPick, dualShoe = false }) {
   const choices = chipSizes(runValues, chosenSize || recommendedSize);
   // The chart cells host the box themselves when they are on screen, so this
   // editor draws nothing at all rather than a second, lonely box below them.
@@ -2455,12 +2526,21 @@ function SizeChoiceEditor({ chosenSize, recommendedSize, runValues, choicesHidde
                   (recommended ? " is-recommended" : "")
                 }
                 aria-pressed={active}
-                aria-label={formatSizeToken(size) || size}
+                aria-label={
+                  dualShoe
+                    ? shoeChipLabel(size) || formatSizeToken(size) || size
+                    : formatSizeToken(size) || size
+                }
                 onClick={() => onPick(String(size))}
               >
                 {/* Compact mark on the face ("XL"), full word for the screen
-                    reader ("X-Large") — SIZE_CHIP_COMPACT_PLAN 2026-07-29. */}
-                {compactSizeToken(size) || size}
+                    reader ("X-Large") — SIZE_CHIP_COMPACT_PLAN 2026-07-29.
+                    Spec step 3 (2026-08-08): a shoe token shows BOTH systems
+                    on the face ("EU 43 · US 10") — a bare 43 means nothing
+                    to a US buyer. */}
+                {dualShoe
+                  ? shoeChipLabel(size) || compactSizeToken(size) || size
+                  : compactSizeToken(size) || size}
               </button>
             );
           })}
@@ -3550,6 +3630,15 @@ export default function DetailBody({
     verdict.chart && Array.isArray(verdict.chart.rows)
       ? verdict.chart.rows.filter((r) => r.size && r[sizeMeasureKey] != null).slice(0, 6)
       : [];
+  // Spec step 1 item 4 (2026-08-08): one pinned line at the top of the size
+  // area names the size this card holds. A hand pick outranks the
+  // recommendation (last tap wins). The line sits above every swap below —
+  // measure ask, hunt, chart states — so it never jumps while content loads.
+  const pinnedSize = chosenSize || verdict.recSize || verdict.usualSize || "";
+  // Green only means money or a recommendation (locked ruling). The pinned
+  // line earns green only when it shows the chart-based pick — a hand pick or
+  // the usual size stays plain ink.
+  const pinnedIsRec = !chosenSize && !!verdict.recSize;
   // Kyle 2026-07-31: "when you click on this button two times you get
   // different views — standardize it." The fifth box used to echo EVERY pick,
   // so a tap on the Small cell turned the box from "Other" into "S". One look
@@ -3664,6 +3753,36 @@ export default function DetailBody({
   // A read in flight is NOT this state: the ghost table carries the reading
   // sweep and footnote, and pulling it mid-read would blank the section.
   const noChart = !verdict.chart && !hunting && !chartRead.reading;
+  // Spec step 2 (2026-08-08): while a chart is on the way, the size section
+  // stays hidden behind ONE honest status line. A deliberate photo read
+  // outranks the background hunt. The line names the real step; the old wall
+  // (a bare "-" under a READING CHART rail) is gone.
+  const sizeBusy = !verdict.chart && (hunting || chartRead.reading);
+  const sizeStatusLine = !sizeBusy
+    ? ""
+    : chartRead.reading
+      ? "Reading the size chart…"
+      : "Looking for the size chart photo…";
+  // Spec step 3 (2026-08-08): the plain no-chart case earns the locked pick
+  // screen. Every special state keeps its own honest wall instead: signed
+  // out, any blocked reason, a borrowed chart to clear, a WhatsApp seller, a
+  // link-failure code, or a bare Taobao listing. Accessories and bags wait
+  // for the non-sized treatment (copy TBD with Kyle).
+  const noChartPickScreen =
+    noChart &&
+    item.category !== "accessory" &&
+    item.category !== "bag" &&
+    item.needsSignIn !== true &&
+    huntAuthBlocked !== true &&
+    huntCapBlocked !== true &&
+    !chartNeedsCards(item) &&
+    huntOutBlocked !== true &&
+    huntRateBlocked !== true &&
+    huntOffBlocked !== true &&
+    !item.sizeChartNeedsClear &&
+    !whatsAppChatUrl(item.whatsapp || "") &&
+    !(item.failCode && LINK_FAIL_COPY[item.failCode]) &&
+    listingInfoOf(item) !== "bare";
   useEffect(() => {
     const url = chartPhotoUrlRef.current;
     if (url && chartRead.thumb !== url) {
@@ -4600,6 +4719,11 @@ export default function DetailBody({
           {(!isDesktopPanel || desktopTab === "fit") ? (
           <section className="cz-detail-facts-section" aria-label="Size and fit">
             {wantsStickyBar ? mobileFitIntro : null}
+            {pinnedSize ? (
+              <p className={"cz-your-size" + (pinnedIsRec ? " is-rec" : "")}>
+                Your size · <b>{compactSizeToken(pinnedSize) || pinnedSize}</b>
+              </p>
+            ) : null}
             {askingMeasures && onSaveBodyProfile ? (
               // 4f — the ask replaces the sizing block until saved or skipped.
               <FitMeasureAsk
@@ -4660,6 +4784,14 @@ export default function DetailBody({
                 }
                 onOpenMeasureHelp={onOpenSizes || null}
               />
+            ) : sizeBusy ? (
+              // Spec step 2 (2026-08-08): one honest status line while a chart
+              // is on the way. The section hides behind it — no bare "-", no
+              // READING CHART rail, no ghost rows stacking under a wait.
+              <p className="cz-size-status" role="status">
+                <span className="cz-size-status-dot" aria-hidden="true" />
+                {sizeStatusLine}
+              </p>
             ) : !verdict.chart && !hunting ? (
               <SizingBlockNoChart
                 usualSize={chosenSize || verdict.usualSize}
@@ -4682,6 +4814,16 @@ export default function DetailBody({
                 failCode={item.failCode || ""}
                 listingInfo={listingInfoOf(item)}
                 onClearChart={clearBlockedChart}
+                pickScreen={noChartPickScreen}
+                category={item.category}
+                runValues={verdict.runValues}
+                chosenSize={chosenSize}
+                customSize={customSize}
+                onCustomChange={setCustomSize}
+                onCommit={commitCustomSize}
+                onPick={pickItemSize}
+                onUpload={() => chartInputRef.current?.click()}
+                onEnterManual={() => chartRead.startTyping(item.category)}
               />
             ) : (
               <SizingBlock
@@ -4726,10 +4868,13 @@ export default function DetailBody({
                 Round 5 point 5.1: when the chart cells above already pick,
                 the plain chip row here would repeat them — so it hides and
                 only the odd-size field stays. */}
-            {!askingMeasures ? (
+            {!askingMeasures && !sizeBusy && !noChartPickScreen ? (
               <SizeChoiceEditor
                 chosenSize={chosenSize}
-                recommendedSize={verdict.recSize || verdict.usualSize}
+                /* Spec step 3 (2026-08-08): no green before a chart. Green only
+                   means money or a recommendation, and a chartless usual size
+                   is neither. */
+                recommendedSize={noChart ? "" : verdict.recSize || verdict.usualSize}
                 runValues={verdict.runValues}
                 choicesHidden={sizeCells.length > 0}
                 customSize={customSize}
@@ -4753,6 +4898,7 @@ export default function DetailBody({
               />
             ) : !askingMeasures &&
               !noChart &&
+              !sizeBusy &&
               bodyProfile &&
               onSaveBodyProfile &&
               !SIZE_PICK_SKIP_CATEGORIES.has(item.category) ? (
@@ -4781,7 +4927,7 @@ export default function DetailBody({
                 {shortsLengthNote(verdict.rec, bodyProfile, item.category, { units: measureUnits })}
               </p>
             ) : null}
-            {!isDesktopPanel && verdict.prescription && !noChart ? (
+            {!isDesktopPanel && verdict.prescription && !noChart && !sizeBusy ? (
               <p className="cz-sizing-why">
                 {verdict.prescription}
                 {/* CH-14: the fit-detail pref is changeable on the sentence it
@@ -4820,6 +4966,7 @@ export default function DetailBody({
               typeof onToggleFitSummary === "function" &&
               !fitSummaryOn &&
               !noChart &&
+              !sizeBusy &&
               verdict.recSize ? (
               // Summary off but a pick exists: the way back on stays where the
               // sentence would be, not back in a settings sheet.
@@ -4835,7 +4982,7 @@ export default function DetailBody({
               </p>
             ) : null}
 
-            {!askingMeasures && !noChart ? (
+            {!askingMeasures && !noChart && !sizeBusy ? (
               isDesktopPanel ? (
                 <div className="cz-fit-read-block">
                   <button
@@ -4886,7 +5033,7 @@ export default function DetailBody({
               )
             ) : null}
 
-            {isDesktopPanel && !noChart && !askingMeasures ? (
+            {isDesktopPanel && !noChart && !sizeBusy && !askingMeasures ? (
               <SellerChartFold
                 item={item}
                 chart={verdict.chart}
@@ -4903,6 +5050,10 @@ export default function DetailBody({
               />
             ) : null}
 
+            {/* Spec step 3 (2026-08-08): the pick screen carries its own two
+                chart-entry actions, so this bottom row would say the same
+                thing twice there. Every other state keeps it. */}
+            {!noChartPickScreen ? (
             <div className="cz-detail-chart-actions">
               {/* Kyle 2026-07-30: a chart photo is not always readable, and a
                   seller sometimes prints the numbers in the listing text. Four
@@ -4943,6 +5094,7 @@ export default function DetailBody({
                 </button>
               ) : null}
             </div>
+            ) : null}
 
             {chartRead.reading || chartRead.chart || chartRead.error ? (
               <SizingBlockReading
