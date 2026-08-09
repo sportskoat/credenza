@@ -16718,12 +16718,15 @@ input.cz-sizing-cell.is-custom:focus-visible {
 
 /* left/width come from inline style (fitReadRows ruler). The band is the
    BODY range this cut fits; the garment number pins 50% on every row. */
+/* 2026-08-09: the room fill now paints over this, so the target band steps
+   back to a hairline outline. It still says where the room SHOULD land; the
+   fill says where it actually lands. */
 .cz-fitread-band {
   position: absolute;
-  top: 22px;
-  height: 10px;
+  top: 19px;
+  height: 16px;
+  border: 1px solid var(--cz-fit-band);
   border-radius: 999px;
-  background: var(--cz-fit-band);
   transform-origin: center;
   animation: cz-fitread-grow var(--dur-open) var(--ease-out) both;
 }
@@ -16733,6 +16736,33 @@ input.cz-sizing-cell.is-custom:focus-visible {
 .cz-fitread-band.is-dashed {
   background: transparent;
   border: 1px dashed var(--cz-hair-strong);
+}
+
+/* The room (Kyle 2026-08-09): the bar fills from the body out to the garment
+   and wears the row's own tier color — green inside the band, amber in the
+   soft zone, red past it. This is the bar the legend describes: "The line is
+   your body. The bar is the room." The target band stays underneath as the
+   quiet reference for where the room SHOULD land. */
+.cz-fitread-fill {
+  position: absolute;
+  top: 21px;
+  height: 12px;
+  border-radius: 999px;
+  background: var(--cz-money);
+  transform-origin: left center;
+  transition:
+    left var(--dur-open) var(--ease-out),
+    width var(--dur-open) var(--ease-out),
+    background-color var(--dur-open) var(--ease-out);
+  animation: cz-fitread-grow var(--dur-open) var(--ease-out) both;
+}
+
+.cz-fitread-fill.is-soft {
+  background: var(--cz-warn);
+}
+
+.cz-fitread-fill.is-warn {
+  background: var(--cz-error-text);
 }
 
 /* The amber "get away with it" zones flank the band out to the per-measure

@@ -173,6 +173,52 @@ describe("fitReadRows", () => {
     expect(marks.L).toBeLessThan(marks.XL);
   });
 
+  // Kyle 2026-08-09: "should the green bars turn amber then red as you get
+  // further from the correct size?" The bar became the ROOM — body to garment
+  // — and it carries the row's own tier colour.
+  it("fills the bar from the body out to the garment", () => {
+    const chart = parseSizeChart(TOP_TEXT);
+    const profile = { chest: 108, shoulder: 45 };
+    const rec = recommendSize(chart, profile, "shirt");
+    const chest = fitReadRows(chart, rec, profile, "shirt").find((r) => r.key === "chest");
+
+    // The body pins the centre, so a garment BIGGER than the body fills right
+    // from 50% out to the mark.
+    expect(chest.ease).toBe(8);
+    expect(chest.fillLeft).toBe(50);
+    expect(chest.fillWidth).toBeCloseTo(chest.mark - 50, 6);
+    expect(chest.fillWidth).toBeGreaterThan(0);
+  });
+
+  it("fills leftward when the garment is smaller than the body", () => {
+    // A 122cm chest in the hand-picked M (chest 116): the garment is 6cm
+    // UNDER the body, so the room runs left of centre and the width stays
+    // positive. The engine would advise a bigger size; the bars follow the
+    // tap (Fable ruling 2026-07-29), so the pick is what draws.
+    const chart = parseSizeChart(TOP_TEXT);
+    const profile = { chest: 122, shoulder: 45 };
+    const rec = recommendSize(chart, profile, "shirt", null, "M");
+    expect(rec.size).toBe("M");
+    const chest = fitReadRows(chart, rec, profile, "shirt").find((r) => r.key === "chest");
+
+    expect(chest.ease).toBeLessThan(0);
+    expect(chest.mark).toBeLessThan(50);
+    expect(chest.fillLeft).toBe(chest.mark);
+    expect(chest.fillWidth).toBeCloseTo(50 - chest.mark, 6);
+    expect(chest.fillWidth).toBeGreaterThan(0);
+  });
+
+  it("draws no fill on a row that carries no verdict", () => {
+    const chart = parseSizeChart(TOP_TEXT);
+    const profile = { chest: 108, shoulder: 45 };
+    const rec = recommendSize(chart, profile, "shirt");
+    // Body length has no body-side number, so it grades nothing.
+    const length = fitReadRows(chart, rec, profile, "shirt").find((r) => r.key === "length");
+    expect(length.mark).toBe(null);
+    expect(length.fillLeft).toBe(null);
+    expect(length.fillWidth).toBe(null);
+  });
+
   it("keeps band, orange zones, and tier flags on one map (three tiers)", () => {
     // Kyle 2026-08-02: GREEN inside the band, ORANGE within the soft delta of
     // an edge, RED past it. All three read off the same domain map, so the
@@ -439,9 +485,9 @@ describe("FitReadTable in the detail body", () => {
     // under the rows is two short sentences now.
     expect(scoped.queryByText("THEIRS")).toBe(null);
     expect(scoped.queryByText("TIGHT")).toBe(null);
-    expect(
-      scoped.getByText("The line is your body. The bar is the room.")
-    ).toBeInTheDocument();
+    expect(scoped.getByText(/The line is your body\. The bar is the room\./)).toBeInTheDocument();
+    // The legend names the colour ladder Kyle asked for (2026-08-09).
+    expect(scoped.getByText(/turns amber, then\s+red/)).toBeInTheDocument();
     // The source line says where the numbers came from.
     expect(scoped.getByText(/The seller's chart · 3 sizes/)).toBeInTheDocument();
 
@@ -521,6 +567,38 @@ describe("FitReadTable in the detail body", () => {
     // Inside the band on both rows, so neither wears a warning color.
     expect(table.querySelectorAll(".cz-fitread-word.is-warn").length).toBe(0);
     expect(table.querySelectorAll(".cz-fitread-word.is-soft").length).toBe(0);
+  });
+
+  // Kyle 2026-08-09: the room bar climbs green → amber → red with the ease.
+  it("paints the room bar green inside the band", () => {
+    const { container } = renderBody(fitItem());
+    const table = container.querySelector(".cz-fitread");
+    const fills = [...table.querySelectorAll(".cz-fitread-fill")];
+    // Chest and shoulder grade; the estimated body length draws no fill.
+    expect(fills.length).toBe(2);
+    expect(table.querySelectorAll(".cz-fitread-fill.is-soft").length).toBe(0);
+    expect(table.querySelectorAll(".cz-fitread-fill.is-warn").length).toBe(0);
+    // Geometry is inline from the ruler, same as the band.
+    expect(fills[0].style.left).toMatch(/%$/);
+    expect(fills[0].style.width).toMatch(/%$/);
+  });
+
+  it("turns the room bar amber in the soft zone", () => {
+    const { container } = renderBody(fitItem(), {
+      bodyProfile: { chest: 105, shoulder: 45, height: 180, weight: 75 },
+    });
+    const table = container.querySelector(".cz-fitread");
+    expect(table.querySelectorAll(".cz-fitread-fill.is-soft").length).toBe(1);
+    expect(table.querySelectorAll(".cz-fitread-fill.is-warn").length).toBe(0);
+  });
+
+  it("turns the room bar red past the soft zone", () => {
+    const { container } = renderBody(fitItem(), {
+      bodyProfile: { chest: 101, shoulder: 45, height: 180, weight: 75 },
+    });
+    const table = container.querySelector(".cz-fitread");
+    expect(table.querySelectorAll(".cz-fitread-fill.is-warn").length).toBe(1);
+    expect(table.querySelectorAll(".cz-fitread-fill.is-soft").length).toBe(0);
   });
 
   it("says a touch loose in amber on the orange tier", () => {

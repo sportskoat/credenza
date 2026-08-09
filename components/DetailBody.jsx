@@ -2010,6 +2010,10 @@ function FitReadTrack({
   softLeftWidth = null,
   softRight = null,
   softRightWidth = null,
+  // The room fill: body to garment, in the row's own tier color (Kyle
+  // 2026-08-09). Null on a row with no verdict.
+  fillLeft = null,
+  fillWidth = null,
   units,
 }) {
   const bandStyle =
@@ -2035,6 +2039,18 @@ function FitReadTrack({
         <span
           className={"cz-fitread-band" + (dashed ? " is-dashed" : "")}
           style={bandStyle}
+        />
+      ) : null}
+      {/* The room: body to garment, tinted by the row's own tier (Kyle
+          2026-08-09, "should the green bars turn amber then red as you get
+          further from the correct size?"). It draws over the target band, so
+          the band survives underneath as the quiet reference. */}
+      {showBand && fillLeft != null && fillWidth > 0 ? (
+        <span
+          className={
+            "cz-fitread-fill" + (warn ? " is-warn" : soft ? " is-soft" : "")
+          }
+          style={{ left: fillLeft + "%", width: fillWidth + "%" }}
         />
       ) : null}
       {theirs != null ? (
@@ -2143,6 +2159,8 @@ function FitReadMeasureRows({ rows, hasChart, units, rec = null }) {
         softLeftWidth={r.softLeftWidth}
         softRight={r.softRight}
         softRightWidth={r.softRightWidth}
+        fillLeft={r.fillLeft}
+        fillWidth={r.fillWidth}
         units={units}
       />
       {r.note ? <div className="cz-fitread-note">{r.note}</div> : null}
@@ -2281,7 +2299,8 @@ function FitReadTable({
            sentences. The old four-sentence version explained the dashed band
            and the amber zone before the customer had met either. */
         <p className="cz-fitread-legend">
-          The line is your body. The bar is the room.
+          The line is your body. The bar is the room. It turns amber, then
+          red, the further the room gets from a good fit.
         </p>
       ) : null}
       {canOpenChart && chartOpen ? (

@@ -2167,6 +2167,11 @@ export function fitReadRows(chart, rec, profile, category, title = null) {
     let softLeftWidth = null;
     let softRight = null;
     let softRightWidth = null;
+    // The room fill: body to garment, tinted by the row's own tier (Kyle
+    // 2026-08-09). Null on a row with no verdict — a dashed row claims
+    // nothing, so it draws no fill either.
+    let fillLeft = null;
+    let fillWidth = null;
     if (theirs != null && target) {
       // Ruler, four-lane debate 2026-08-08 (stage 2): a graded row pins the
       // customer's BODY number at the center (50%). The green band is the
@@ -2205,6 +2210,13 @@ export function fitReadRows(chart, rec, profile, category, title = null) {
         const beyond = Math.max(ease - draftedHi, draftedLo - ease);
         warn = beyond > softDelta;
         soft = !warn && beyond > 0;
+        // Kyle 2026-08-09: "should the green bars turn amber then red as you
+        // get further from the correct size?" Yes — so the bar becomes the
+        // ROOM, drawn from the body (always 50%) out to the garment mark, and
+        // it wears the row's own tier color. A garment SMALLER than the body
+        // fills leftward; the fill is the gap either way, never negative.
+        fillLeft = Math.min(50, mark);
+        fillWidth = Math.abs(mark - 50);
       } else {
         // No verdict (missing or estimated body number): the garment pins
         // the center instead and the dashed band shows the body range this
@@ -2258,6 +2270,8 @@ export function fitReadRows(chart, rec, profile, category, title = null) {
       softLeftWidth,
       softRight,
       softRightWidth,
+      fillLeft,
+      fillWidth,
       // Kyle 2026-07-30: say it out loud when the seller's chart has no such
       // column. The row used to print a bare "—", which reads the same as a
       // number we failed to use. An empty cell on a chart we DO hold is a
