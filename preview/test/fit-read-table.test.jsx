@@ -329,6 +329,9 @@ describe("fitReadRows", () => {
   // 50cm shorts inseam graded against his 94cm trouser length. The category
   // can be wrong; the numbers cannot both be a leg length.
   it("never grades a shorts leg against a saved trouser length", () => {
+    // 2026-08-09: the title now corrects the file. "Arc Shorts" saved as
+    // pants reads its leg against the SHORTS length, and the customer here
+    // has not saved one — so the row asks for it instead of drawing red.
     // 50cm leg (a 19.7in shorts inseam) on a chart saved under "pants".
     const shortsChart = parseSizeChart(
       "M: waist 76, hip 104, pants length 50\nL: waist 82, hip 108, pants length 50"
@@ -346,9 +349,27 @@ describe("fitReadRows", () => {
     expect(length.ease).toBe(null);
     expect(length.warn).toBe(false);
     expect(length.dashed).toBe(true);
-    // The row says why, in plain words.
-    expect(length.note).toMatch(/different measurement/i);
+    // The row names the measurement it wants, in plain words.
     expect(length.note).toMatch(/shorts length/i);
+    expect(length.note).toMatch(/edit my measurements/i);
+  });
+
+  // The 20cm guard is the safety net for a title that says nothing. Same
+  // numbers, same wrong file, but no word in the title to correct it.
+  it("still drops a leg 20cm short of the saved trousers when the title is silent", () => {
+    const shortsChart = parseSizeChart(
+      "M: waist 76, hip 104, pants length 50\nL: waist 82, hip 108, pants length 50"
+    );
+    const profile = { waist: 84, hip: 99, pantsLength: 94 };
+    const rec = recommendSize(shortsChart, profile, "pants", null, null, "Arc Trail Bottom");
+    const length = fitReadRows(shortsChart, rec, profile, "pants", "Arc Trail Bottom").find(
+      (r) => r.key === "pantsLength"
+    );
+    expect(length.theirs).toBe(50);
+    expect(length.yours).toBe(null);
+    expect(length.ease).toBe(null);
+    expect(length.warn).toBe(false);
+    expect(length.note).toMatch(/different measurement/i);
   });
 
   it("uses the saved shorts length when the item is mislabelled as pants", () => {

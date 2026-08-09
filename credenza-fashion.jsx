@@ -595,6 +595,21 @@ export function migrateHaulShip(raw) {
 // Local category guess from free text (Yupoo title/description, review notes).
 // Returns a CATEGORIES key or "" when nothing confident matches.
 // Exported for Fix 3 pins (titleEn + variant re-guess after resolve).
+// Kyle's "Arc Shorts" is filed as pants (the seller's page said so, and the
+// saved category never changed). Shorts and trousers keep SEPARATE saved leg
+// lengths, so the wrong file drew a red "too tight" off a 50cm inseam graded
+// against a 94cm trouser number. The title is the stronger evidence: nothing
+// called shorts is a pair of trousers. This only corrects pants → shorts, and
+// only for the fit read — the saved category, the shelf and the filters are
+// untouched.
+export function legCategoryFromTitle(category, title) {
+  if (category !== "pants") return category;
+  const t = String(title || "").toLowerCase();
+  if (!t.trim()) return category;
+  if (/短裤/.test(t)) return "shorts";
+  return /\b(short|shorts|trunks)\b/.test(t) ? "shorts" : category;
+}
+
 export function guessFashionCategory(text) {
   const t = String(text || "").toLowerCase();
   if (!t.trim()) return "";
@@ -1874,7 +1889,8 @@ export function recommendSize(
   // waist-floor reject can never come back through the length door.
   // Both sides are the seller's own full outside-leg number (裤长), matching
   // what the customer saves — no inseam column, no estimate, per PR #20.
-  const bodyLegKey = category === "shorts" ? "shortsLength" : "pantsLength";
+  const bodyLegKey =
+    legCategoryFromTitle(category, title) === "shorts" ? "shortsLength" : "pantsLength";
   let legLengthWin = null;
   let legLengthPick = null;
   const legLengthTarget =
@@ -2150,6 +2166,10 @@ export function fitReadRows(chart, rec, profile, category, title = null) {
   // Confirmed short sleeve: the sleeve row stays (the numbers are real) but
   // becomes information only, like Body length — no ease, no mark, no warn.
   // Long/unknown keeps the verdict: when unsure, we keep the warning.
+  // A title that says shorts outranks a category that says pants. See
+  // legCategoryFromTitle: the two keep separate saved leg lengths, so the
+  // wrong one draws a red verdict off two measurements that never matched.
+  const legCategory = legCategoryFromTitle(category, title);
   const shortSleeve = sleeveStyle(title, chart) === "short";
   const sleeveBodyKey = shortSleeve ? "shortSleeve" : "longSleeve";
   // Fit engine v2. The table must grade a row exactly as the pick graded it,
@@ -2191,7 +2211,7 @@ export function fitReadRows(chart, rec, profile, category, title = null) {
       key === "sleeve"
         ? sleeveBodyKey
         : key === "pantsLength"
-        ? category === "shorts"
+        ? legCategory === "shorts"
           ? "shortsLength"
           : "pantsLength"
         : key === "length" && isBottoms
@@ -2351,10 +2371,14 @@ export function fitReadRows(chart, rec, profile, category, title = null) {
         "It is a different measurement, so we do not grade it. " +
         "Save a shorts length to get a verdict.";
     } else if (!infoOnly && !estimated && yours == null && theirs != null) {
-      note =
-        "Save your " +
-        (FIT_READ_LABELS[key] || key).toLowerCase() +
-        " under Edit my measurements to get a fit verdict.";
+      // Name the measurement the app actually wants. A leg row on a pair of
+      // shorts needs the SHORTS length, and "save your length" sends the
+      // customer to the wrong box.
+      const wanted =
+        key === "pantsLength" && bodyKey === "shortsLength"
+          ? "shorts length"
+          : (FIT_READ_LABELS[key] || key).toLowerCase();
+      note = "Save your " + wanted + " under Edit my measurements to get a fit verdict.";
     }
     rows.push({
       key,
