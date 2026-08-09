@@ -1901,7 +1901,61 @@ export function recommendSize(
     }
   }
   // A hand pick beats every calculation. Then a length winner, then the chest/waist.
-  const best = forcedRow || lengthPick || legLengthPick || chestWinner;
+  const scoredBest = forcedRow || lengthPick || legLengthPick || chestWinner;
+  // ── The honesty clamp (Kyle 2026-08-09, Fable's ruling) ───────────────────
+  // Kyle: "this says take the small but even the small says tight, this
+  // should be take the medium????" He was right, and the card was lying.
+  //
+  // The score subtracts runShift, so a listing that says "runs large" aims a
+  // whole size smaller. The size chips grade raw ease with no shift, because
+  // a chip must say what the garment IS on this body. The two disagreed, and
+  // the app recommended a size its own chip called TIGHT.
+  //
+  // Fable's ruling: keep the shoulder, the sleeve, and the run memory in the
+  // score — they earn their place. Clamp only the final letter. The app may
+  // never name a size the chips call bad while a size the chips call good is
+  // on the same chart. A hand pick still wins (forcedRow skips the clamp).
+  //
+  // The word is sizeCellReads' word, from the shared formula: raw ease, no
+  // shift of any kind. LOOSE is not a complaint — a roomy size is a normal
+  // answer, and a "runs large" listing is allowed to choose one.
+  //
+  // Two sizes are still allowed to lose their chip's approval:
+  //  - A taped loved jacket replaces the band. The customer's own garment is
+  //    the target, and the chips already grade against it.
+  //  - A confirmed set-in shoulder more than 3cm out cannot be altered. A
+  //    good chest cannot buy that back, so the row is not an honest answer.
+  const rawWord = (r) => {
+    if (!band || !isTop) return null;
+    return sizeVerdictWord(
+      r[primaryKey] - p[bodyKey],
+      band[0],
+      band[1],
+      fitReadSoftDelta(primaryKey)
+    );
+  };
+  const shoulderRejects = (r) => {
+    if (cut !== "set-in" || skipShoulder || r.shoulder == null) return false;
+    const t = lovedShoulder != null ? lovedShoulder : p.shoulder != null ? Number(p.shoulder) + 2 : null;
+    return t != null && Math.abs(r.shoulder - t) > SHOULDER_REJECT_CM;
+  };
+  let best = scoredBest;
+  if (
+    !forcedRow &&
+    band &&
+    isTop &&
+    lovedChest == null &&
+    SIZE_WORD_COMPLAINTS.includes(rawWord(scoredBest))
+  ) {
+    // The best-scoring row whose own chip says FITS. `scored` is sorted by
+    // score, so the first match is the one the engine likes most. The
+    // shoulder and the sleeve stay in that score: they earn their place, and
+    // they may still move the pick among the sizes the chips call good.
+    const honest = scored
+      .map((s) => s.row)
+      .find((r) => rawWord(r) === "FITS" && !shoulderRejects(r));
+    if (honest) best = honest;
+  }
   // What the same body would have been given with no looseness taste. The
   // taste no longer moves a chart row (the band does the work), but the panel
   // still owes the customer the old, plain signal: "you like these oversized,
@@ -2071,6 +2125,20 @@ const FIT_READ_SOFT_DELTA = {
 const fitReadSoftDelta = (key) =>
   FIT_READ_SOFT_DELTA[key] != null ? FIT_READ_SOFT_DELTA[key] : 4;
 
+// One formula, one word. The size chips print this, and recommendSize's
+// honesty clamp reads it, so the card can never name a size its own chip
+// calls bad. Raw ease only — a chip says what the garment IS on this body.
+// TIGHT, TOO SMALL, BIG and TOO BIG are complaints. LOOSE is not: a roomy
+// size is a normal answer, and a run hint is allowed to choose one.
+function sizeVerdictWord(ease, lo, hi, softDelta) {
+  if (ease < lo) return lo - ease > softDelta ? "TOO SMALL" : "TIGHT";
+  if (ease <= hi) return "FITS";
+  if (ease - hi <= softDelta) return "LOOSE";
+  if (ease - hi <= softDelta * 2) return "BIG";
+  return "TOO BIG";
+}
+const SIZE_WORD_COMPLAINTS = ["TIGHT", "TOO SMALL", "BIG", "TOO BIG"];
+
 export function fitReadRows(chart, rec, profile, category, title = null) {
   const picked = rec && rec.row ? rec.row : null;
   const p = migrateSleeveMeasurements(profile) || {};
@@ -2094,6 +2162,20 @@ export function fitReadRows(chart, rec, profile, category, title = null) {
   const cut = rec ? rec.cut : null;
   const noShoulderSeam = !isBottoms && (cut === "drop" || cut === "raglan");
   const chartRows = chart && Array.isArray(chart.rows) ? chart.rows : [];
+  // Kyle 2026-08-09: his Arc Shorts read "garment 19.7in · you 37in · -17.3in
+  // room · too tight" in red. A 19.7in shorts inseam was graded against a 37in
+  // waistband-to-hem trouser length, because the item was saved as "pants".
+  // The category can be wrong; the numbers cannot both be a leg length.
+  // A garment leg this much shorter than the saved one is a DIFFERENT
+  // measurement, so the row states the number and claims nothing. Showing a
+  // red verdict off a mismatched pair is worse than showing no verdict.
+  const LEG_MISMATCH_CM = 20;
+  const legLooksLikeShorts = (garmentLeg, bodyLeg) =>
+    garmentLeg != null &&
+    bodyLeg != null &&
+    isFinite(Number(garmentLeg)) &&
+    isFinite(Number(bodyLeg)) &&
+    Number(bodyLeg) - Number(garmentLeg) > LEG_MISMATCH_CM;
   // Body length on a bottoms chart is the same "Length" idea as 裤长; only
   // one of the two keys renders, pantsLength first.
   const rows = [];
@@ -2117,6 +2199,25 @@ export function fitReadRows(chart, rec, profile, category, title = null) {
           : key;
     const rawYours = bodyKey != null && p[bodyKey] != null ? Number(p[bodyKey]) : null;
     let yours = rawYours != null && isFinite(rawYours) ? rawYours : null;
+    // A leg length that misses the saved one by more than 20cm is not the same
+    // measurement (Kyle's shorts saved under "pants"). Drop the body side: the
+    // row prints the seller's number and grades nothing.
+    // A saved shorts length rescues the row: the item is mislabelled, but the
+    // customer already taped the measurement this garment needs.
+    let legMismatch = key === "pantsLength" && legLooksLikeShorts(theirs, yours);
+    if (legMismatch) {
+      const shortsBody = p.shortsLength != null ? Number(p.shortsLength) : null;
+      if (
+        shortsBody != null &&
+        isFinite(shortsBody) &&
+        !legLooksLikeShorts(theirs, shortsBody)
+      ) {
+        yours = shortsBody;
+        legMismatch = false;
+      } else {
+        yours = null;
+      }
+    }
     // Torso estimate (Kyle approved, #design 2026-07-30): nobody tapes their
     // torso, so the Body length row estimates it from height — shoulder-to-
     // hip runs about 30% of height. Flagged so the table can label it.
@@ -2244,6 +2345,11 @@ export function fitReadRows(chart, rec, profile, category, title = null) {
       note = "A drop or raglan shoulder has no seam to compare. Info only.";
     } else if (shortSleeve && key === "sleeve" && infoOnly) {
       note = "A short sleeve has no fit verdict. Info only.";
+    } else if (legMismatch) {
+      note =
+        "This leg is much shorter than the trousers you measured. " +
+        "It is a different measurement, so we do not grade it. " +
+        "Save a shorts length to get a verdict.";
     } else if (!infoOnly && !estimated && yours == null && theirs != null) {
       note =
         "Save your " +
@@ -2325,12 +2431,7 @@ export function sizeCellReads(chart, rec, profile) {
     .filter((r) => r && r.size && r[key] != null && isFinite(Number(r[key])))
     .map((r) => {
       const ease = Number(r[key]) - body;
-      let word;
-      if (ease < lo) word = lo - ease > softDelta ? "TOO SMALL" : "TIGHT";
-      else if (ease <= hi) word = "FITS";
-      else if (ease - hi <= softDelta) word = "LOOSE";
-      else if (ease - hi <= softDelta * 2) word = "BIG";
-      else word = "TOO BIG";
+      const word = sizeVerdictWord(ease, lo, hi, softDelta);
       const extra =
         partnerBody != null && r[partnerKey] != null && isFinite(Number(r[partnerKey]))
           ? {

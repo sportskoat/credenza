@@ -324,6 +324,62 @@ describe("fitReadRows", () => {
     expect(length.ease).toBe(null);
   });
 
+  // Kyle 2026-08-09: his Arc Shorts read "garment 19.7in · you 37in · -17.3in
+  // room · too tight" in a long red bar. The item was saved as "pants", so a
+  // 50cm shorts inseam graded against his 94cm trouser length. The category
+  // can be wrong; the numbers cannot both be a leg length.
+  it("never grades a shorts leg against a saved trouser length", () => {
+    // 50cm leg (a 19.7in shorts inseam) on a chart saved under "pants".
+    const shortsChart = parseSizeChart(
+      "M: waist 76, hip 104, pants length 50\nL: waist 82, hip 108, pants length 50"
+    );
+    const profile = { waist: 84, hip: 99, pantsLength: 94 }; // 37in trousers
+    const rec = recommendSize(shortsChart, profile, "pants", null, null, "Arc Shorts");
+    const length = fitReadRows(shortsChart, rec, profile, "pants", "Arc Shorts").find(
+      (r) => r.key === "pantsLength"
+    );
+    expect(length, "Length row present").toBeTruthy();
+    // The seller's number still shows. Everything that would claim a verdict
+    // is gone: no body number, no ease, no red.
+    expect(length.theirs).toBe(50);
+    expect(length.yours).toBe(null);
+    expect(length.ease).toBe(null);
+    expect(length.warn).toBe(false);
+    expect(length.dashed).toBe(true);
+    // The row says why, in plain words.
+    expect(length.note).toMatch(/different measurement/i);
+    expect(length.note).toMatch(/shorts length/i);
+  });
+
+  it("uses the saved shorts length when the item is mislabelled as pants", () => {
+    // Same mislabelled item, but this time the customer taped their shorts.
+    // The app owes them the verdict: the measurement it needs is on file.
+    const shortsChart = parseSizeChart(
+      "M: waist 76, hip 104, pants length 50\nL: waist 82, hip 108, pants length 50"
+    );
+    const profile = { waist: 84, hip: 99, pantsLength: 94, shortsLength: 48 };
+    const rec = recommendSize(shortsChart, profile, "pants", null, null, "Arc Shorts");
+    const length = fitReadRows(shortsChart, rec, profile, "pants", "Arc Shorts").find(
+      (r) => r.key === "pantsLength"
+    );
+    expect(length.yours, "graded against the shorts length, not the trousers").toBe(48);
+    expect(length.ease).toBe(2);
+    expect(length.dashed).toBe(false);
+  });
+
+  it("still grades a real trouser length against the saved one", () => {
+    // The guard must not silence honest trousers: 102cm garment, 94cm body.
+    const chart = parseSizeChart(BOTTOM_TEXT);
+    const profile = { waist: 78, hip: 100, pantsLength: 94 };
+    const rec = recommendSize(chart, profile, "pants");
+    const length = fitReadRows(chart, rec, profile, "pants").find(
+      (r) => r.key === "pantsLength"
+    );
+    expect(length.yours).toBe(94);
+    expect(length.ease).toBe(6);
+    expect(length.note).toBe(null);
+  });
+
   it("ghosts without a chart: yours only, no marks", () => {
     const rows = fitReadRows(null, null, { chest: 105, shoulder: 45 }, "shirt");
     expect(rows.map((r) => r.key)).toEqual(["chest", "shoulder"]);

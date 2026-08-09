@@ -29,6 +29,7 @@ const {
   parseSizeChart,
   recommendSize,
   shortsLengthNote,
+  sizeCellReads,
   topCut,
 } = await import("../../credenza-fashion.jsx");
 
@@ -572,5 +573,60 @@ describe("delivery taps and seller run memory (debate stage 6)", () => {
     const rec = recommendSize(chart, { chest: 100 }, "shirt", null, null, "Cotton tee", null, -3);
     expect(rec.size).toBe("M");
     expect(rec.outcomeShift).toBe(-3);
+  });
+});
+
+// ── The honesty clamp (Kyle 2026-08-09) ──────────────────────────────────────
+// Kyle, on a real Weidian tee: "this says take the small but even the small
+// says tight, this should be take the medium????" He was right. The score
+// subtracts the run hint, the size chips do not, and the app named a size its
+// own chip called TIGHT. Three review lanes returned the same ruling: clamp
+// the letter, never shift the chip. The chip word is what the shopper trusts.
+describe("the app never names a size its own chip calls bad", () => {
+  // Kyle's tee, in centimetres, with his saved chest 106.7 and shoulder 48.3.
+  const TEE = [
+    "S: chest 110.0, shoulder 45.0, length 72.9, sleeve 21.3",
+    "M: chest 114.0, shoulder 47.0, length 72.9, sleeve 21.3",
+    "L: chest 117.9, shoulder 49.0, length 72.9, sleeve 21.3",
+    "XL: chest 121.9, shoulder 51.1, length 72.9, sleeve 21.3",
+  ].join("\n");
+  const TITLE = "Relaxed Fit Double-Layer Jersey Short Tee";
+  const body = { chest: 106.7, shoulder: 48.3, length: 68.6 };
+  const pref = { length: null, looseness: "regular", dismissed: false };
+
+  it("moves the pick off a TIGHT size when a runs-large listing aimed it there", () => {
+    const chart = chartOf(TEE + "\nThis style runs large.");
+    const rec = recommendSize(chart, body, "shirt", pref, null, TITLE);
+    const reads = sizeCellReads(chart, rec, body);
+    const wordOf = (size) => reads.find((r) => r.size === size).word;
+    expect(wordOf("S"), "the S chip must keep its raw verdict").toBe("TIGHT");
+    expect(wordOf("M")).toBe("FITS");
+    expect(rec.size, "the app must not name a size its chip calls TIGHT").toBe("M");
+    expect(reads.find((r) => r.isPick).word).toBe("FITS");
+  });
+
+  it("leaves a hand pick alone, even onto a size the chip calls TIGHT", () => {
+    const chart = chartOf(TEE + "\nThis style runs large.");
+    expect(recommendSize(chart, body, "shirt", pref, "S", TITLE).size).toBe("S");
+  });
+
+  it("still returns a size when no size on the chart fits", () => {
+    // Every row is far too small. The clamp has nothing honest to move to, so
+    // the scored winner stands and the chips say so.
+    const chart = chartOf("S: chest 90, shoulder 40\nM: chest 94, shoulder 42");
+    const rec = recommendSize(chart, body, "shirt", pref, null, TITLE);
+    expect(rec.size).toBe("M");
+    expect(sizeCellReads(chart, rec, body).every((r) => r.word === "TOO SMALL")).toBe(true);
+  });
+
+  it("lets a roomy size win, because LOOSE is not a complaint", () => {
+    // Knit band 5-10 on a body of 100. The L reads +11: one centimetre past
+    // the band, so the chip says LOOSE. That is a normal answer, and a learned
+    // "runs small" shift is allowed to choose it. Only TIGHT, TOO SMALL, BIG
+    // and TOO BIG trigger the clamp.
+    const chart = chartOf("M: chest 106, length 70\nL: chest 111, length 72");
+    const rec = recommendSize(chart, { chest: 100 }, "shirt", null, null, "Cotton tee", null, 3);
+    expect(rec.size).toBe("L");
+    expect(sizeCellReads(chart, rec, { chest: 100 }).find((r) => r.size === "L").word).toBe("LOOSE");
   });
 });
