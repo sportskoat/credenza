@@ -2009,14 +2009,10 @@ function FitReadTrack({
   showBand = true,
   bandLeft = null,
   bandWidth = null,
-  // The room fill: body to garment, in the row's own tier color (Kyle
-  // 2026-08-09). Null on a row with no verdict.
-  fillLeft = null,
-  fillWidth = null,
-  units,
-  // The soft-zone geometry (softLeft/softRight and their widths) still comes
-  // out of fitReadRows and still decides the row's colour tier. It no longer
-  // DRAWS: the flanking amber stubs were half the mud Kyle saw.
+  // fitReadRows still returns the soft-zone geometry and the room fill, and
+  // the tier it computes still colours the ease column and the tick. Neither
+  // one DRAWS on the rail any more: the amber stubs and the room fill were
+  // the mud Kyle saw, and the fill contradicted the green range beside it.
 }) {
   const bandStyle =
     bandLeft != null && bandWidth != null
@@ -2025,49 +2021,40 @@ function FitReadTrack({
   return (
     <span className="cz-fitread-track">
       <span className="cz-fitread-rail" />
-      {/* 2026-08-09, Fable's verdict after Kyle said the bars "look very bad":
-          the amber soft zones and the target outline are gone from a graded
-          row. They stacked four shapes on one track and read as mud. The
-          shopper needs three facts — where the body is, where the garment
-          is, and whether that gap is good. The fill answers all three.
-          A row with NO verdict keeps the dashed band: it is the only shape
-          that row has, and it says "we are not guessing at this". */}
-      {showBand && dashed && bandStyle ? (
-        <span className="cz-fitread-band is-dashed" style={bandStyle} />
-      ) : null}
-      {/* The room: body to garment, tinted by the row's own tier (Kyle
-          2026-08-09, "should the green bars turn amber then red as you get
-          further from the correct size?"). It draws over the target band, so
-          the band survives underneath as the quiet reference. */}
-      {showBand && fillLeft != null && fillWidth > 0 ? (
+      {/* 2026-08-09, round 3. Kyle: "I like the old ones. The old design
+          looked so much better... The graphs is what is nice because it shows
+          how well something would fit within the green of your actual
+          measurements." Three lanes ruled the same way, and Kyle chose it.
+          GREEN = the span of garment sizes that would fit this body.
+          TICK  = where this garment actually lands.
+          Inside the green, it fits. That is the whole graph.
+          The room fill went with this change: it painted a second meaning on
+          the same track, and two meanings on one bar is what read as mud.
+          Every number now lives in its own column, so nothing floats over the
+          rail and nothing collides with the row above or below. */}
+      {showBand && bandStyle ? (
         <span
-          className={
-            "cz-fitread-fill" + (warn ? " is-warn" : soft ? " is-soft" : "")
-          }
-          style={{ left: fillLeft + "%", width: fillWidth + "%" }}
+          className={"cz-fitread-band" + (dashed ? " is-dashed" : "")}
+          style={bandStyle}
+        />
+      ) : null}
+      {/* The body sits at the centre of every graded row, so the eye can read
+          one column down the table (Kyle approved the body-centred rail on
+          2026-08-08; only the fill and the floating tags go). */}
+      {mark != null && yours != null ? (
+        <span
+          className={"cz-fitread-you" + (estimated ? " is-est" : "")}
+          style={{ left: "50%" }}
         />
       ) : null}
       {theirs != null ? (
         <span
-          className="cz-fitread-garment"
+          className={
+            "cz-fitread-garment" + (warn ? " is-warn" : soft ? " is-soft" : "")
+          }
           style={{ left: (mark != null && yours != null ? mark : 50) + "%" }}
         >
           <span className="cz-fitread-garment-tick" />
-          <span className="cz-fitread-garment-tag">{formatMeasure(theirs, units)}</span>
-        </span>
-      ) : null}
-      {mark != null && yours != null ? (
-        <span
-          className={
-            "cz-fitread-you" +
-            (warn ? " is-warn" : soft ? " is-soft" : "") +
-            (estimated ? " is-est" : "")
-          }
-          style={{ left: "50%" }}
-        >
-          <span className="cz-fitread-you-tag">
-            {"YOU · " + (estimated ? "~" : "") + formatMeasure(yours, units)}
-          </span>
         </span>
       ) : null}
     </span>
@@ -2083,78 +2070,87 @@ function FitReadHeads({ kicker = null }) {
   );
 }
 
+// 2026-08-09 round 3. Kyle rejected the one-sentence row: "It only covers
+// half of the fucking page. The format is terrible. You have all of these
+// different values running into each other." He asked for the old table back
+// and said what he liked about it: "it shows how well something would fit
+// within the green of your actual measurements."
+//
+// Five columns, full width. Nothing floats over the rail.
+//
+//   Chest   [====green====|tick====]   44.9"   42"   +2.9" fine
+//   NAME    the fit rail              THEIRS  YOURS   EASE + word
+//
+// THEIRS is the seller's number. YOURS is the customer's. EASE is the
+// difference, which is the whole calculation, shown instead of described.
+function FitReadHeadRow({ show }) {
+  if (!show) return null;
+  return (
+    <div className="cz-fitread-row cz-fitread-colheads" aria-hidden="true">
+      <span className="cz-fitread-name" />
+      <span className="cz-fitread-scale">
+        <span>TIGHT</span>
+        <span>TRUE</span>
+        <span>LOOSE</span>
+      </span>
+      <span className="cz-fitread-col">
+        <span className="cz-fitread-col-long">THEIRS</span>
+        <span className="cz-fitread-col-short">THRS</span>
+      </span>
+      <span className="cz-fitread-col">
+        <span className="cz-fitread-col-long">YOURS</span>
+        <span className="cz-fitread-col-short">YOU</span>
+      </span>
+      <span className="cz-fitread-col">EASE</span>
+    </div>
+  );
+}
+
 function FitReadMeasureRows({ rows, hasChart, units, rec = null }) {
   return rows.map((r) => {
-    // Simpler fit card (Kyle's mockup, 2026-08-09): every graded row ends in
-    // one plain word — "oversized", "a touch tight", "fine". The numbers stay;
-    // the word is what a customer reads first.
+    // Every graded row ends in one plain word — "oversized", "a touch tight",
+    // "fine". The numbers stay; the word is what a customer reads first.
     const word = fitRowWord(r, rec);
+    const tone = r.warn ? " is-warn" : r.soft ? " is-soft" : "";
     return (
-    <div key={r.key} className="cz-fitread-row">
-      <div className="cz-fitread-rowhead">
+      <div key={r.key} className="cz-fitread-row">
         <span className="cz-fitread-name">{r.name}</span>
-        <span className="cz-fitread-nums">
-          {r.theirs != null ? (
+        <FitReadTrack
+          theirs={r.theirs}
+          yours={r.yours}
+          estimated={r.estimated}
+          mark={r.mark}
+          warn={r.warn}
+          soft={r.soft}
+          dashed={r.dashed}
+          showBand={hasChart}
+          bandLeft={r.bandLeft}
+          bandWidth={r.bandWidth}
+        />
+        <span className={"cz-fitread-theirs" + (r.theirs == null ? " is-unknown" : "")}>
+          {r.theirs != null
+            ? formatMeasure(r.theirs, units)
+            : r.notOnChart
+              ? "not on the seller's chart"
+              : "—"}
+        </span>
+        <span className={"cz-fitread-yours" + (r.yours == null ? " is-unknown" : "")}>
+          {r.yours != null
+            ? (r.estimated ? "~" : "") + formatMeasure(r.yours, units)
+            : "—"}
+        </span>
+        <span className={"cz-fitread-ease" + tone}>
+          {r.ease != null ? (
             <>
-              {"garment "}
-              <b>{formatMeasure(r.theirs, units)}</b>
-              {" · you "}
-              {r.yours != null
-                ? (r.estimated ? "~" : "") + formatMeasure(r.yours, units)
-                : "–"}
-              {r.ease != null ? (
-                <>
-                  {" · "}
-                  <span
-                    className={
-                      "cz-fitread-diff" +
-                      (r.warn ? " is-warn" : r.soft ? " is-soft" : "")
-                    }
-                  >
-                    {(r.ease >= 0 ? "+" : "") + formatMeasure(r.ease, units) + " room"}
-                  </span>
-                </>
-              ) : null}
-              {word ? (
-                <>
-                  {" · "}
-                  <span
-                    className={
-                      "cz-fitread-word" +
-                      (r.warn ? " is-warn" : r.soft ? " is-soft" : "")
-                    }
-                  >
-                    {word}
-                  </span>
-                </>
-              ) : null}
+              <b>{(r.ease >= 0 ? "+" : "") + formatMeasure(r.ease, units)}</b>
+              {word ? <span className="cz-fitread-word">{word}</span> : null}
             </>
-          ) : r.notOnChart ? (
-            <span className="cz-fitread-unknown">not on the seller's chart</span>
-          ) : r.yours != null ? (
-            <>{"you " + (r.estimated ? "~" : "") + formatMeasure(r.yours, units)}</>
           ) : (
-            <span className="cz-fitread-unknown">–</span>
+            <span className="cz-fitread-unknown">—</span>
           )}
         </span>
+        {r.note ? <div className="cz-fitread-note">{r.note}</div> : null}
       </div>
-      <FitReadTrack
-        theirs={r.theirs}
-        yours={r.yours}
-        estimated={r.estimated}
-        mark={r.mark}
-        warn={r.warn}
-        soft={r.soft}
-        dashed={r.dashed}
-        showBand={hasChart}
-        bandLeft={r.bandLeft}
-        bandWidth={r.bandWidth}
-        fillLeft={r.fillLeft}
-        fillWidth={r.fillWidth}
-        units={units}
-      />
-      {r.note ? <div className="cz-fitread-note">{r.note}</div> : null}
-    </div>
     );
   });
 }
@@ -2266,11 +2262,17 @@ function FitReadTable({
         </button>
       ) : null}
       <FitReadHeads kicker={canOpenChart ? null : kicker} />
+      <FitReadHeadRow show={hasChart} />
       <FitReadMeasureRows rows={rows} hasChart={hasChart} units={units} rec={rec} />
-      {/* The legend went 2026-08-09 (Fable's verdict, after Kyle: "it looks
-          very bad"). With the soft zones and the outline gone, one bar runs
-          from the body to the garment and carries one colour. A sentence
-          explaining that only added a third grey line under the rows. */}
+      {/* One line, and it is the calculation Kyle asked to see: "Put the
+          measurements and calculations of how we're calculating this." The
+          columns show the numbers; this says what the last one means. */}
+      {hasChart ? (
+        <p className="cz-fitread-legend">
+          Green is the range that fits you. The mark is this garment. Ease is
+          theirs minus yours, so a plus is room.
+        </p>
+      ) : null}
       {canOpenChart && chartOpen ? (
         <div className="cz-fitread-detail">
           <p className="cz-fitread-detail-help">

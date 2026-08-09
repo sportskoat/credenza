@@ -185,7 +185,11 @@ describe("DetailBody detail facts", () => {
 
     expect(screen.getByRole("button", { name: "Type the chart" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Type the numbers" })).toBeNull();
-    expect(CSS).toContain("grid-template-columns: 76px 1fr 52px");
+    // 2026-08-09 round 3: the phone stopped hiding THEIRS and YOURS to fit
+    // three columns. It stacks instead — name and rail on one line, the three
+    // numbers aligned below. Kyle asked to see the calculation.
+    expect(CSS).toContain('"name  track"');
+    expect(CSS).toContain('"nums  nums"');
     expect(CSS).toContain(
       '.cz-detail-scroll.has-panes[data-pane="fit"] > .cz-detail-pane:not(.cz-detail-pane-fit)'
     );
@@ -986,13 +990,23 @@ describe("DetailBody size tap drives the numbers", () => {
   it("moves the fit read table onto the tapped size too", () => {
     const { container } = render(body(item("tap-table"), chestOnly()));
 
+    // 2026-08-09 round 3: the seller's number lives in the THEIRS column now,
+    // not on a tag floating over the rail. The rule is the same — tap a size
+    // and every number in the table follows it.
     const theirs = () =>
-      [...container.querySelectorAll(".cz-fitread-garment-tag")].map((n) => n.textContent);
+      [...container.querySelectorAll(".cz-fitread-theirs")].map((n) => n.textContent);
     expect(theirs()).toContain("116cm");
 
     tapSize(container, "X-Large");
     expect(theirs()).toContain("124cm");
     expect(theirs()).not.toContain("116cm");
+
+    // The tick moves with it, so the graph and the numbers cannot disagree.
+    const marks = [...container.querySelectorAll(".cz-fitread-garment")].map(
+      (n) => n.style.left
+    );
+    expect(marks.length).toBeGreaterThan(0);
+    expect(marks.every((l) => /%$/.test(l))).toBe(true);
   });
 
   it("keeps the recommendation in the qualifier when the tap disagrees", () => {

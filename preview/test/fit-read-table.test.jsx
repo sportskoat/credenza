@@ -557,34 +557,39 @@ describe("FitReadTable in the detail body", () => {
     // bars describe. CSS upper-cases it on screen.
     expect(scoped.getByText("How the Medium sits on you")).toBeInTheDocument();
     expect(scoped.queryByText("FIT READ")).toBe(null);
-    // Redesign 2026-08-08: no TIGHT/TRUE/LOOSE scale and no column heads.
-    // The row head reads "garment X · you Y · +Z room · word".
-    expect(scoped.queryByText("THEIRS")).toBe(null);
-    expect(scoped.queryByText("TIGHT")).toBe(null);
-    // The legend went 2026-08-09 (Fable's verdict). One bar, one colour, no
-    // sentence to explain it.
-    expect(scoped.queryByText(/The line is your body/)).toBe(null);
+    // 2026-08-09 round 3. Kyle asked for the old table back: "I like the old
+    // ones... it shows how well something would fit within the green of your
+    // actual measurements." Five columns, and the scale rides over the rail.
+    expect(scoped.getByText("THEIRS")).toBeInTheDocument();
+    expect(scoped.getByText("YOURS")).toBeInTheDocument();
+    expect(scoped.getByText("TIGHT")).toBeInTheDocument();
+    expect(scoped.getByText("TRUE")).toBeInTheDocument();
+    expect(scoped.getByText("LOOSE")).toBeInTheDocument();
+    // One line names the calculation Kyle asked to see.
+    expect(scoped.getByText(/Green is the range that fits you/)).toBeInTheDocument();
 
     // The picked row is M: chest 116 vs 108 = +8, shoulder 46 vs 45 = +1.
-    // The garment number shows twice per row: the head and the bar tag.
-    expect(scoped.getAllByText("116cm").length).toBe(2);
-    expect(scoped.getAllByText(/108cm/).length).toBeGreaterThan(0);
-    expect(scoped.getByText("+8cm room")).toBeInTheDocument();
-    expect(scoped.getByText("+1cm room")).toBeInTheDocument();
+    // Every number sits in its own column exactly once — nothing floats over
+    // the rail any more ("all of these different values running into each
+    // other").
+    expect(scoped.getAllByText("116cm").length).toBe(1);
+    expect(scoped.getAllByText(/108cm/).length).toBe(1);
+    expect(scoped.getByText("+8cm")).toBeInTheDocument();
+    expect(scoped.getByText("+1cm")).toBeInTheDocument();
+    expect(table.querySelectorAll(".cz-fitread-garment-tag").length).toBe(0);
+    expect(table.querySelectorAll(".cz-fitread-you-tag").length).toBe(0);
 
-    // 2026-08-09 (Fable's verdict, after Kyle: "it looks very bad"): a graded
-    // row draws ONE shape — the room fill. The target outline and the amber
-    // flanking zones are gone; they stacked four shapes on one track and read
-    // as mud. Only a row with NO verdict keeps its dashed band, because that
-    // band is the one thing the row has to say.
+    // THE GREEN is the range that fits this body, on every graded row. The
+    // room fill went with this change: two meanings on one rail read as mud.
+    expect(table.querySelectorAll(".cz-fitread-fill").length).toBe(0);
     expect(table.querySelectorAll(".cz-fitread-soft").length).toBe(0);
-    expect(table.querySelectorAll(".cz-fitread-band").length).toBe(1);
+    // Chest and shoulder grade; the estimated body length draws the dashed
+    // band, because that row is not guessing at a verdict.
+    expect(table.querySelectorAll(".cz-fitread-band").length).toBe(3);
     expect(table.querySelectorAll(".cz-fitread-band.is-dashed").length).toBe(1);
-    // Fills on the two graded rows (chest + shoulder), never on the dashed one.
-    expect(table.querySelectorAll(".cz-fitread-fill").length).toBe(2);
-    // YOU lines only on graded rows.
+    // The garment tick and the body line only draw on a graded row.
+    expect(table.querySelectorAll(".cz-fitread-garment-tick").length).toBe(3);
     expect(table.querySelectorAll(".cz-fitread-you").length).toBe(2);
-    expect(table.querySelectorAll(".cz-fitread-you.is-warn").length).toBe(0);
     // Geometry is inline from the ruler, not fixed CSS left/width.
     const band = table.querySelector(".cz-fitread-band");
     expect(band.style.left).toMatch(/%$/);
@@ -608,11 +613,11 @@ describe("FitReadTable in the detail body", () => {
     });
     const table = container.querySelector(".cz-fitread");
     expect(table).not.toBe(null);
-    expect(table.querySelectorAll(".cz-fitread-you.is-soft").length).toBe(1);
-    expect(table.querySelectorAll(".cz-fitread-you.is-warn").length).toBe(0);
-    expect(table.querySelectorAll(".cz-fitread-diff.is-soft").length).toBe(1);
-    // The tier survives on the fill; the flanking zones do not draw any more.
-    expect(table.querySelectorAll(".cz-fitread-fill.is-soft").length).toBe(1);
+    // 2026-08-09 round 3: the tier lives on the EASE cell and the garment
+    // tick. The body line is a quiet reference mark and carries no tier.
+    expect(table.querySelectorAll(".cz-fitread-ease.is-soft").length).toBe(1);
+    expect(table.querySelectorAll(".cz-fitread-ease.is-warn").length).toBe(0);
+    expect(table.querySelectorAll(".cz-fitread-garment.is-soft").length).toBe(1);
     expect(table.querySelectorAll(".cz-fitread-soft").length).toBe(0);
     // An orange row still counts as inside for the verdict line — the old
     // +4 slack's verdict, now shown honestly by the color.
@@ -629,9 +634,9 @@ describe("FitReadTable in the detail body", () => {
       bodyProfile: { chest: 101, shoulder: 45, height: 180, weight: 75 },
     });
     const table = container.querySelector(".cz-fitread");
-    expect(table.querySelectorAll(".cz-fitread-you.is-warn").length).toBe(1);
-    expect(table.querySelectorAll(".cz-fitread-you.is-soft").length).toBe(0);
-    expect(table.querySelectorAll(".cz-fitread-diff.is-warn").length).toBe(1);
+    expect(table.querySelectorAll(".cz-fitread-ease.is-warn").length).toBe(1);
+    expect(table.querySelectorAll(".cz-fitread-ease.is-soft").length).toBe(0);
+    expect(table.querySelectorAll(".cz-fitread-garment.is-warn").length).toBe(1);
   });
 
   // 2026-08-09 (Kyle's simpler-card mockup): every graded row ends in one
@@ -643,41 +648,44 @@ describe("FitReadTable in the detail body", () => {
     // Chest and shoulder grade; the estimated body length stays silent.
     expect(words.length).toBe(2);
     expect(words.every((n) => n.textContent.trim().length > 0)).toBe(true);
-    // Inside the band on both rows, so neither wears a warning color.
-    expect(table.querySelectorAll(".cz-fitread-word.is-warn").length).toBe(0);
-    expect(table.querySelectorAll(".cz-fitread-word.is-soft").length).toBe(0);
+    // 2026-08-09 round 3: the word sits inside the EASE cell and inherits
+    // its tier colour, so the two can never disagree.
+    expect(table.querySelectorAll(".cz-fitread-ease.is-warn").length).toBe(0);
+    expect(table.querySelectorAll(".cz-fitread-ease.is-soft").length).toBe(0);
   });
 
-  // Kyle 2026-08-09: the room bar climbs green → amber → red with the ease.
-  it("paints the room bar green inside the band", () => {
+  // Kyle chose this meaning on 2026-08-09: the green is the range of garment
+  // sizes that would fit him, and the tick is where this garment lands.
+  it("draws the green range and the garment tick on every graded row", () => {
     const { container } = renderBody(fitItem());
     const table = container.querySelector(".cz-fitread");
-    const fills = [...table.querySelectorAll(".cz-fitread-fill")];
-    // Chest and shoulder grade; the estimated body length draws no fill.
-    expect(fills.length).toBe(2);
-    expect(table.querySelectorAll(".cz-fitread-fill.is-soft").length).toBe(0);
-    expect(table.querySelectorAll(".cz-fitread-fill.is-warn").length).toBe(0);
-    // Geometry is inline from the ruler, same as the band.
-    expect(fills[0].style.left).toMatch(/%$/);
-    expect(fills[0].style.width).toMatch(/%$/);
+    const bands = [...table.querySelectorAll(".cz-fitread-band:not(.is-dashed)")];
+    expect(bands.length).toBe(2);
+    // Geometry is inline from the ruler, never fixed CSS left/width.
+    for (const b of bands) {
+      expect(b.style.left).toMatch(/%$/);
+      expect(b.style.width).toMatch(/%$/);
+    }
+    // The tick moves; the body mark is pinned at the centre.
+    const ticks = [...table.querySelectorAll(".cz-fitread-garment")];
+    expect(ticks.length).toBeGreaterThan(0);
+    expect(ticks[0].style.left).toMatch(/%$/);
+    for (const you of table.querySelectorAll(".cz-fitread-you")) {
+      expect(you.style.left).toBe("50%");
+    }
   });
 
-  it("turns the room bar amber in the soft zone", () => {
-    const { container } = renderBody(fitItem(), {
+  it("marks the tick amber in the soft zone and red past it", () => {
+    const soft = renderBody(fitItem(), {
       bodyProfile: { chest: 105, shoulder: 45, height: 180, weight: 75 },
-    });
-    const table = container.querySelector(".cz-fitread");
-    expect(table.querySelectorAll(".cz-fitread-fill.is-soft").length).toBe(1);
-    expect(table.querySelectorAll(".cz-fitread-fill.is-warn").length).toBe(0);
-  });
-
-  it("turns the room bar red past the soft zone", () => {
-    const { container } = renderBody(fitItem(), {
+    }).container.querySelector(".cz-fitread");
+    expect(soft.querySelectorAll(".cz-fitread-garment.is-soft").length).toBe(1);
+    expect(soft.querySelectorAll(".cz-fitread-garment.is-warn").length).toBe(0);
+    const red = renderBody(fitItem(), {
       bodyProfile: { chest: 101, shoulder: 45, height: 180, weight: 75 },
-    });
-    const table = container.querySelector(".cz-fitread");
-    expect(table.querySelectorAll(".cz-fitread-fill.is-warn").length).toBe(1);
-    expect(table.querySelectorAll(".cz-fitread-fill.is-soft").length).toBe(0);
+    }).container.querySelector(".cz-fitread");
+    expect(red.querySelectorAll(".cz-fitread-garment.is-warn").length).toBe(1);
+    expect(red.querySelectorAll(".cz-fitread-garment.is-soft").length).toBe(0);
   });
 
   it("says a touch loose in amber on the orange tier", () => {
@@ -685,7 +693,7 @@ describe("FitReadTable in the detail body", () => {
       bodyProfile: { chest: 105, shoulder: 45, height: 180, weight: 75 },
     });
     const table = container.querySelector(".cz-fitread");
-    const soft = table.querySelector(".cz-fitread-word.is-soft");
+    const soft = table.querySelector(".cz-fitread-ease.is-soft .cz-fitread-word");
     expect(soft, "soft-tier word").not.toBe(null);
     expect(soft.textContent).toBe("a touch loose");
   });
@@ -695,7 +703,7 @@ describe("FitReadTable in the detail body", () => {
       bodyProfile: { chest: 101, shoulder: 45, height: 180, weight: 75 },
     });
     const table = container.querySelector(".cz-fitread");
-    const warn = table.querySelector(".cz-fitread-word.is-warn");
+    const warn = table.querySelector(".cz-fitread-ease.is-warn .cz-fitread-word");
     expect(warn, "warn-tier word").not.toBe(null);
     expect(warn.textContent).toBe("too loose");
   });
@@ -731,7 +739,9 @@ describe("FitReadTable in the detail body", () => {
     expect(table.classList.contains("is-open")).toBe(true);
     expect(table.querySelector(".cz-size-chart-table")).not.toBe(null);
     // Ease help + every size row so length room is readable next to the pick.
-    expect(within(table).getByText(/Ease/)).toBeInTheDocument();
+    // "Ease" now appears twice: once in the table's own legend line, once in
+    // the help text inside the opened chart.
+    expect(within(table).getAllByText(/Ease/).length).toBeGreaterThan(1);
     expect(table.querySelector(".cz-size-chart-table .is-rec")).not.toBe(null);
     await user.click(screen.getByRole("button", { name: /Hide full chart/i }));
     expect(table.querySelector(".cz-size-chart-table")).toBe(null);
@@ -1065,33 +1075,43 @@ describe("typing a chart by hand", () => {
 // ("garment X · you Y · +Z room") above a taller track. The legibility rule
 // survives: mono numbers, nowrap, tabular figures, no font shrink.
 describe("fit-read number legibility (2026-08-08 redesign)", () => {
-  // 2026-08-09 (Kyle: "it's too gray, you can't really even see what the fit
-  // is"). The numbers went 11px → 12px and the label beside them matches, so
-  // the row reads as one sentence. The legibility rule is unchanged.
-  it("keeps mono numbers nowrap + tabular at 12px (no font shrink)", () => {
-    const block = FIT_CSS.match(/\.cz-fitread-nums\s*\{[^}]+\}/);
-    expect(block, "row-head number rule missing").toBeTruthy();
+  // 2026-08-09 round 3: every number has its own right-aligned column, and
+  // the legibility rule follows it there — mono, tabular, no shrink.
+  it("keeps mono numbers nowrap + tabular at 12px in their own columns", () => {
+    const block = FIT_CSS.match(/\.cz-fitread-theirs,\n\.cz-fitread-yours\s*\{[^}]+\}/);
+    expect(block, "number column rule missing").toBeTruthy();
     expect(block[0]).toContain("font-family: var(--cz-mono)");
     expect(block[0]).toContain("font-size: 12px");
     expect(block[0]).toContain("font-variant-numeric: tabular-nums");
     expect(block[0]).toContain("white-space: nowrap");
+    expect(block[0]).toContain("text-align: right");
+    const ease = FIT_CSS.match(/\n\.cz-fitread-ease\s*\{[^}]+\}/);
+    expect(ease, "ease column rule missing").toBeTruthy();
+    expect(ease[0]).toContain("font-size: 12px");
+    expect(ease[0]).toContain("font-variant-numeric: tabular-nums");
   });
 
-  // Kyle 2026-08-09: "where it says waist, hip, and length... they're out in
-  // kind of empty space." The label sat hard left and the numbers hard right,
-  // and the gap between them grew with the panel.
-  it("packs the row label against its own numbers, left-aligned", () => {
-    const head = FIT_CSS.match(/\.cz-fitread-rowhead\s*\{[^}]+\}/);
-    expect(head, "row-head rule missing").toBeTruthy();
-    expect(head[0]).not.toContain("space-between");
-    expect(head[0]).toContain("justify-content: flex-start");
-    const nums = FIT_CSS.match(/\.cz-fitread-nums\s*\{[^}]+\}/);
-    expect(nums[0]).toContain("text-align: left");
-    // The label is the same size as the numbers beside it. A smaller label
-    // reads as a caption and breaks the one-line effect.
-    const name = FIT_CSS.match(/\n\.cz-fitread-name\s*\{[^}]+\}/);
-    expect(name, "row name rule missing").toBeTruthy();
-    expect(name[0]).toContain("font-size: 12px");
+  // Kyle 2026-08-09: "It only covers half of the fucking page... you have all
+  // of these different values running into each other." The one-sentence row
+  // is gone. Five columns, and the rail takes what the numbers do not need.
+  it("gives every value its own column and the rail the rest", () => {
+    const row = FIT_CSS.match(/\n\.cz-fitread-row\s*\{[^}]+\}/);
+    expect(row, "row rule missing").toBeTruthy();
+    expect(row[0]).toContain("display: grid");
+    // NAME | rail | THEIRS | YOURS | EASE — the rail is the 1fr.
+    expect(row[0]).toMatch(/grid-template-columns:[^;]*minmax\(0, 1fr\)/);
+    // The sentence row and its parts are gone for good.
+    expect(FIT_CSS).not.toMatch(/\n\.cz-fitread-rowhead\s*\{/);
+    expect(FIT_CSS).not.toMatch(/\n\.cz-fitread-nums\s*\{/);
+    // Nothing floats over the rail any more.
+    expect(FIT_CSS).not.toMatch(/\n\.cz-fitread-garment-tag\s*\{/);
+    expect(FIT_CSS).not.toMatch(/\n\.cz-fitread-you-tag\s*\{/);
+    // Kyle 2026-08-09: "Extend that out." The desktop panel capped the rail
+    // at 72% / 460px; it must take the full column now.
+    const panel = FIT_CSS.match(/\.cz-dpanel \.cz-fitread-track\s*\{[^}]+\}/);
+    expect(panel, "panel track rule missing").toBeTruthy();
+    expect(panel[0]).toContain("width: 100%");
+    expect(panel[0]).toContain("max-width: none");
   });
 
   // Kyle 2026-08-09: "the fonts and the sizes for each suggestion... it's too
@@ -1127,13 +1147,12 @@ describe("fit-read number legibility (2026-08-08 redesign)", () => {
     );
   });
 
-  it("drops the old five-cell column grid everywhere", () => {
-    const row = FIT_CSS.match(/\.cz-fitread-row\s*\{[^}]+\}/);
-    expect(row, "fitread row rule missing").toBeTruthy();
-    expect(row[0]).not.toContain("grid-template-columns");
+  // The five-column grid came BACK on 2026-08-09 (round 3, Kyle's ruling:
+  // "I like the old ones"). What must not come back is the empty space it
+  // used to leave: the row keeps no fixed height it does not need.
+  it("keeps the rows tight, with no height the content does not need", () => {
     const dpanel = FIT_CSS.match(/\.cz-dpanel \.cz-fitread-row\s*\{[^}]+\}/);
     expect(dpanel, "dpanel row rule missing").toBeTruthy();
-    expect(dpanel[0]).not.toContain("grid-template-columns");
     // The old 44px floor went on 2026-08-09 (Kyle: "too much white space").
     // It was never a touch target — the row is a plain div with no handler,
     // so the height bought nothing but empty space. Padding spaces the rows
@@ -1195,22 +1214,24 @@ describe("fit-read number legibility (2026-08-08 redesign)", () => {
 describe("three-tier orange paints from theme tokens", () => {
   const HEX = /#[0-9a-fA-F]{3,8}\b/;
   it("soft room fill, YOU line, and room number use var(--cz-warn*) and no hex", () => {
-    // The .cz-fitread-soft flanking zone retired 2026-08-09 (Fable's verdict).
-    // The soft TIER lives on the room fill now — same token rule applies.
-    const fill = FIT_CSS.match(/\.cz-fitread-fill\.is-soft\s*\{[^}]+\}/);
-    expect(fill, "soft room-fill rule missing").toBeTruthy();
-    expect(fill[0]).toContain("var(--cz-warn)");
-    expect(fill[0]).not.toMatch(HEX);
-
-    const mark = FIT_CSS.match(/\.cz-fitread-you\.is-soft\s*\{[^}]+\}/);
-    expect(mark, "soft YOU line rule missing").toBeTruthy();
-    expect(mark[0]).toContain("var(--cz-warn)");
-    expect(mark[0]).not.toMatch(HEX);
-
-    const ease = FIT_CSS.match(/\.cz-fitread-diff\.is-soft\s*\{[^}]+\}/);
-    expect(ease, "soft room-number rule missing").toBeTruthy();
+    // 2026-08-09 round 3: the room fill and the tiered YOU line are gone.
+    // The soft tier now rides the EASE column and the garment tick, and the
+    // token rule follows it there.
+    const ease = FIT_CSS.match(/\n\.cz-fitread-ease\.is-soft\s*\{[^}]+\}/);
+    expect(ease, "soft ease rule missing").toBeTruthy();
     expect(ease[0]).toContain("var(--cz-warn-ink)");
     expect(ease[0]).not.toMatch(HEX);
+
+    const tick = FIT_CSS.match(
+      /\.cz-fitread-garment\.is-soft \.cz-fitread-garment-tick\s*\{[^}]+\}/
+    );
+    expect(tick, "soft garment tick rule missing").toBeTruthy();
+    expect(tick[0]).toContain("var(--cz-warn-ink)");
+    expect(tick[0]).not.toMatch(HEX);
+
+    // The retired rules must not come back with a raw colour attached.
+    expect(FIT_CSS).not.toMatch(/\n\.cz-fitread-fill\.is-soft\s*\{/);
+    expect(FIT_CSS).not.toMatch(/\n\.cz-fitread-you\.is-soft\s*\{/);
   });
 
   it("seller-chart ease gets the same amber tier", () => {
