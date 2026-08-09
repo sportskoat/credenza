@@ -681,15 +681,6 @@ function SizingBlock({
   // Tap equals rec → green "recommended pick" (Kyle / F 2026-08-02). Green
   // means the app's pick only — see credenza-fashion.css green rule.
   const agreedWithRec = Boolean(isManual && recSize && !overrodeName);
-  const editorialAside = (() => {
-    if (!editorial) return aside;
-    const type = typeWord || "Piece";
-    if (overrodeName) return type + " · your pick, we'd take the " + overrodeName;
-    if (isManual && recSize) return type + " · recommended pick";
-    if (recSize) return type + " · we would take the " + (formatSizeToken(recSize) || recSize);
-    if (usualSize) return type + " · your usual size";
-    return type;
-  })();
   // Derived body numbers must not claim "Verified fit" (F ticket 2026-08-04).
   // A red blocker bar must not claim it either (debate 2026-08-08): the pick
   // is the closest the seller offers, not a verified fit.
@@ -711,40 +702,69 @@ function SizingBlock({
       ? "Recommended pick"
       : "Your pick";
 
+  // 2026-08-09 (Kyle's simpler-card mockup): the editorial header is one
+  // sentence now — "Take the Medium." under a WE RECOMMEND kicker, with the
+  // confidence pill on the same line. The headline always names the
+  // recommendation, even after a hand pick; the pick gets its own small line
+  // below (Fable ruling 2026-07-29: the advice never hides). Without a
+  // chart pick the old bare-letter headline stands in.
+  const headlineWord = recSize ? formatSizeToken(recSize) || recSize : "";
+  const editorialKicker = recSize
+    ? "We recommend"
+    : usualSize
+      ? "Your usual size"
+      : "The seller's chart";
+  const editorialHeadline = headlineWord
+    ? "Take the " + headlineWord + "."
+    : usualSize
+      ? "We'd keep your usual " + (formatSizeToken(usualSize) || usualSize) + "."
+      : "No confident size yet.";
+  // The pick never hides the advice, and it never steals the green. A tap that
+  // disagrees names itself in plain ink; a tap that lands on the
+  // recommendation earns the green agreement.
+  const editorialPickLine = overrodeName
+    ? "Your pick: the " + (formatSizeToken(chosenSize) || chosenSize) + "."
+    : agreedWithRec
+      ? "Your pick agrees."
+      : "";
+
   return (
     <section className={"cz-sizing" + (isManual ? " is-manual" : "") + (editorial ? " is-editorial" : "")} aria-label="Sizing">
       {editorial ? (
+        /* 2026-08-09 (Kyle's simpler-card mockup): one kicker, one sentence,
+           one pill. The old bare letter plus "Coat · your pick, we'd take the
+           Medium" aside is retired — the sentence carries the advice and the
+           pick line below carries the tap. */
         <div className="cz-fit-result">
-          <span className="cz-fit-result-size">{heroLabel || "-"}</span>
-          {editorialAside ? (
-            <span
-              className={
-                "cz-fit-result-aside" + (agreedWithRec ? " is-rec" : "")
-              }
-            >
-              {editorialAside}
+          <div className="cz-fit-result-head">
+            <span className="cz-fit-result-kicker">{editorialKicker}</span>
+            <span className="cz-fit-result-trail">
+              {/* Kyle 2026-08-03: "set your fit preferences does not take you
+                  anywhere". Credenza only knows fit questions for four
+                  categories. On a category with none, FitPrefAsk renders
+                  nothing, so the button led to a blank. Show the button only
+                  where a question exists. */}
+              {onAskPref && item && FIT_PREF_AXES[item.category] ? (
+                <button
+                  type="button"
+                  className="cz-fit-result-pref"
+                  onClick={onAskPref}
+                >
+                  {fitPrefToggleLabel(item, fitPref)}
+                </button>
+              ) : null}
+              <span className={"cz-fit-result-badge" + (headerBlocked ? " is-blocked" : "")}>
+                <span className="cz-fit-result-dot" aria-hidden="true" />
+                {confidenceLabel}
+              </span>
             </span>
+          </div>
+          <h3 className="cz-fit-result-headline">{editorialHeadline}</h3>
+          {editorialPickLine ? (
+            <p className={"cz-fit-result-pick" + (agreedWithRec ? " is-rec" : "")}>
+              {editorialPickLine}
+            </p>
           ) : null}
-          <span className="cz-fit-result-trail">
-            {/* Kyle 2026-08-03: "set your fit preferences does not take you
-                anywhere". Credenza only knows fit questions for four
-                categories. On a category with none, FitPrefAsk renders
-                nothing, so the button led to a blank. Show the button only
-                where a question exists. */}
-            {onAskPref && item && FIT_PREF_AXES[item.category] ? (
-              <button
-                type="button"
-                className="cz-fit-result-pref"
-                onClick={onAskPref}
-              >
-                {fitPrefToggleLabel(item, fitPref)}
-              </button>
-            ) : null}
-            <span className={"cz-fit-result-badge" + (headerBlocked ? " is-blocked" : "")}>
-              <span className="cz-fit-result-dot" aria-hidden="true" />
-              {confidenceLabel}
-            </span>
-          </span>
         </div>
       ) : (
         <>
@@ -3330,7 +3350,22 @@ function FitPrefAsk({ item, fitPref, onSaveFitPref, onDone, showSkip = true, rev
   );
 }
 
-function FitConfidenceStrip({ item, verdict, bodyProfile, fitPref, units, onSharpen, onEditPref, headerBlocked = false }) {
+function FitConfidenceStrip({
+  item,
+  verdict,
+  bodyProfile,
+  fitPref,
+  units,
+  onSharpen,
+  onEditPref,
+  headerBlocked = false,
+  // Simpler fit card (Kyle's mockup, 2026-08-09): the headline pill is the one
+  // badge on the desktop panel and on the phone sheet, so this strip drops its
+  // copy there. The desktop card back has no headline pill, so the badge
+  // survives as the only confidence claim on that surface — a derived body
+  // must never lose its "Estimated fit" honesty (F retraction 2026-08-04).
+  showBadge = true,
+}) {
   // The numbers describe the size on screen, which is the tapped one whenever
   // the customer tapped. `verdict.shown` falls back to the recommendation.
   const rec = verdict.shown || verdict.rec;
@@ -3368,10 +3403,12 @@ function FitConfidenceStrip({ item, verdict, bodyProfile, fitPref, units, onShar
       <div className="cz-fit4">
         <div className="cz-fit4-head">
           <span className="cz-fit4-kicker">Fit confidence</span>
-          <span className={"cz-fit4-badge " + (derivedBody || headerBlocked ? "is-rough" : "is-precise")}>
-            <span className="cz-fit4-badge-dot" aria-hidden="true" />
-            {precisionBadge}
-          </span>
+          {showBadge ? (
+            <span className={"cz-fit4-badge " + (derivedBody || headerBlocked ? "is-rough" : "is-precise")}>
+              <span className="cz-fit4-badge-dot" aria-hidden="true" />
+              {precisionBadge}
+            </span>
+          ) : null}
         </div>
         {baseWord ? (
           <div className="cz-fit4-size-row">
@@ -3781,15 +3818,9 @@ export default function DetailBody({
     () => sizeCellReads(verdict.chart, verdict.rec, effectiveBodyProfile(bodyProfile)).slice(0, 6),
     [verdict.chart, verdict.rec, bodyProfile]
   );
-  // Spec step 1 item 4 (2026-08-08): one pinned line at the top of the size
-  // area names the size this card holds. A hand pick outranks the
-  // recommendation (last tap wins). The line sits above every swap below —
-  // measure ask, hunt, chart states — so it never jumps while content loads.
-  const pinnedSize = chosenSize || verdict.recSize || verdict.usualSize || "";
-  // Green only means money or a recommendation (locked ruling). The pinned
-  // line earns green only when it shows the chart-based pick — a hand pick or
-  // the usual size stays plain ink.
-  const pinnedIsRec = !chosenSize && !!verdict.recSize;
+  // Spec step 1 item 4 (2026-08-08) retired 2026-08-09: the pinned
+  // "Your size · M" line named the size a third time, above a headline and a
+  // chip run that both name it too. Kyle's simpler-card mockup drops it.
   // Kyle 2026-07-31: "when you click on this button two times you get
   // different views — standardize it." The fifth box used to echo EVERY pick,
   // so a tap on the Small cell turned the box from "Other" into "S". One look
@@ -4889,11 +4920,10 @@ export default function DetailBody({
           {(!isDesktopPanel || desktopTab === "fit") ? (
           <section className="cz-detail-facts-section" aria-label="Size and fit">
             {wantsStickyBar ? mobileFitIntro : null}
-            {pinnedSize ? (
-              <p className={"cz-your-size" + (pinnedIsRec ? " is-rec" : "")}>
-                Your size · <b>{compactSizeToken(pinnedSize) || pinnedSize}</b>
-              </p>
-            ) : null}
+            {/* 2026-08-09 (Kyle's simpler-card mockup): the pinned
+                "Your size · M" line is retired. The headline names the size
+                once, and the chips name it again — three size signals on one
+                screen was the clutter the mockup removes. */}
             {askingMeasures && onSaveBodyProfile ? (
               // 4f — the ask replaces the sizing block until saved or skipped.
               <FitMeasureAsk
@@ -5087,6 +5117,11 @@ export default function DetailBody({
                 onSharpen={() => setAskingMeasures(true)}
                 onEditPref={onSaveFitPref ? () => setAskingPref(true) : null}
                 headerBlocked={headerBlocked}
+                /* One badge per screen (2026-08-09). The desktop panel shows
+                   the headline pill and the phone sheet shows its own
+                   confidence line, so the strip drops its copy on both. The
+                   card back has neither, so it keeps the badge. */
+                showBadge={!isDesktopPanel && !wantsStickyBar}
               />
             ) : null}
 

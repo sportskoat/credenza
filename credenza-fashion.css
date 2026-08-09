@@ -15404,25 +15404,9 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   padding-top: 16px;
 }
 
-/* Spec step 1 item 4 (2026-08-08): the pinned "Your size · M" line. One calm
-   green line at the top of the size area; it holds its place while the
-   blocks under it swap (measure ask, hunt, chart states). */
-.cz-your-size {
-  margin: 0 0 8px;
-  font-family: var(--cz-mono);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  color: var(--cz-ink);
-}
-/* Green only means money or a recommendation (locked ruling). Only the
-   chart-based pick turns this line green. */
-.cz-your-size.is-rec {
-  color: var(--cz-money);
-}
-.cz-your-size b {
-  font-weight: 700;
-}
+/* .cz-your-size retired 2026-08-09 (Kyle's simpler-card mockup): the pinned
+   "Your size · M" line named the size a third time, above a headline and a
+   chip run that both name it too. */
 
 /* Spec step 2 (2026-08-08): the one honest status line while a chart is on
    the way. It replaces the whole size section during the wait, so it carries
@@ -20770,32 +20754,45 @@ input.cz-sizing-fix-size {
   .cz-dpanel .cz-sizing-head {
     display: none;
   }
+  /* 2026-08-09 (Kyle's simpler-card mockup): the header stacks now — a small
+     kicker row with the pill at its right, then one sentence, then the pick
+     line. The old baseline-aligned letter + aside row is retired. */
   .cz-fit-result {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-    flex-wrap: wrap;
+    display: block;
     margin-bottom: 14px;
   }
-  .cz-fit-result-size {
-    font-family: var(--cz-display);
-    font-size: 24px;
-    font-weight: 600;
-    letter-spacing: -0.035em;
-    color: var(--cz-ink);
-    line-height: 1.15;
+  .cz-fit-result-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
   }
-  .cz-fit-result-aside {
-    flex: 1 1 auto;
-    min-width: 0;
+  .cz-fit-result-kicker {
+    font-family: var(--cz-mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--cz-faint);
+  }
+  .cz-fit-result-headline {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    color: var(--cz-ink);
+  }
+  /* The tap names itself under the advice — it never replaces it (Fable
+     ruling 2026-07-29). Green only when the tap agrees with the app's pick. */
+  .cz-fit-result-pick {
+    margin: 5px 0 0;
     font-size: 13.5px;
     font-weight: 400;
-    color: var(--cz-sub);
     line-height: 1.4;
+    color: var(--cz-sub);
   }
-  /* Tap equals the app's size: green "recommended pick" (Kyle / F 2026-08-02).
-     Green has one meaning — the app's pick. Use --cz-money only. */
-  .cz-fit-result-aside.is-rec {
+  .cz-fit-result-pick.is-rec {
     color: var(--cz-money);
   }
   /* Pref control + Verified mark sit as one right-side group. */

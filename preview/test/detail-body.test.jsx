@@ -1042,32 +1042,52 @@ describe("DetailBody size tap drives the numbers", () => {
     expect(screen.queryByText(/we'd take the/)).toBe(null);
   });
 
-  // Kyle / F 2026-08-02: when the tapped size equals the recommendation,
-  // headline says "recommended pick" in green, not "your pick".
-  it("editorial: tap equal to rec says recommended pick in green", () => {
+  // Kyle / F 2026-08-02: when the tapped size equals the recommendation, the
+  // header agrees in green, never in "your pick" words. 2026-08-09 (Kyle's
+  // simpler-card mockup): the header is a sentence now. The headline always
+  // names the recommendation; the pick line below names the tap.
+  it("editorial: tap equal to rec agrees in green under the headline", () => {
     const { container } = render(
       body(item("tap-rec-agree"), { ...chestOnly(), titleTarget: null })
     );
 
     tapSize(container, "Medium");
-    const aside = container.querySelector(".cz-fit-result-aside");
-    expect(aside).not.toBe(null);
-    expect(aside.textContent).toMatch(/recommended pick/i);
-    expect(aside.textContent).not.toMatch(/your pick/i);
-    expect(aside.classList.contains("is-rec")).toBe(true);
-    expect(CSS).toMatch(/\.cz-fit-result-aside\.is-rec\s*\{[^}]*var\(--cz-money\)/s);
+    expect(container.querySelector(".cz-fit-result-headline").textContent).toBe(
+      "Take the Medium."
+    );
+    const pick = container.querySelector(".cz-fit-result-pick");
+    expect(pick).not.toBe(null);
+    expect(pick.textContent).toBe("Your pick agrees.");
+    expect(pick.classList.contains("is-rec")).toBe(true);
+    expect(CSS).toMatch(/\.cz-fit-result-pick\.is-rec\s*\{[^}]*var\(--cz-money\)/s);
   });
 
-  it("editorial: tap that disagrees keeps your pick, we'd take the X", () => {
+  it("editorial: tap that disagrees names the pick and keeps the advice", () => {
     const { container } = render(
       body(item("tap-rec-disagree"), { ...chestOnly(), titleTarget: null })
     );
 
     tapSize(container, "Large");
-    const aside = container.querySelector(".cz-fit-result-aside");
-    expect(aside).not.toBe(null);
-    expect(aside.textContent).toMatch(/your pick,\s*we'd take the Medium/i);
-    expect(aside.classList.contains("is-rec")).toBe(false);
+    // The advice never hides behind a tap (Fable ruling 2026-07-29).
+    expect(container.querySelector(".cz-fit-result-headline").textContent).toBe(
+      "Take the Medium."
+    );
+    const pick = container.querySelector(".cz-fit-result-pick");
+    expect(pick).not.toBe(null);
+    expect(pick.textContent).toBe("Your pick: the Large.");
+    expect(pick.classList.contains("is-rec")).toBe(false);
+  });
+
+  it("editorial: the kicker reads WE RECOMMEND above the sentence", () => {
+    const { container } = render(
+      body(item("tap-rec-kicker"), { ...chestOnly(), titleTarget: null })
+    );
+
+    expect(container.querySelector(".cz-fit-result-kicker").textContent).toBe(
+      "We recommend"
+    );
+    // Nothing tapped yet, so no pick line at all.
+    expect(container.querySelector(".cz-fit-result-pick")).toBe(null);
   });
 
   it("phone kicker: Recommended pick in green when tap equals rec", () => {
@@ -1413,6 +1433,44 @@ describe("DetailBody derived-body rail and confidence", () => {
     expect(badge.textContent).toMatch(/Estimated fit/);
     expect(badge.textContent).not.toMatch(/Precise fit/);
     expect(badge.classList.contains("is-rough")).toBe(true);
+  });
+
+  // 2026-08-09 (Kyle's simpler-card mockup): one confidence claim per screen.
+  // The desktop panel and the phone sheet each carry their own, so the strip
+  // drops its badge there. The card back has neither, so it keeps it — a
+  // derived body must never lose its honesty (F retraction 2026-08-04).
+  it("desktop: the headline pill is the only confidence claim", () => {
+    const { container } = render(
+      body(snug("one-badge-desk"), {
+        bodyProfile: { chest: 96, firstSizeSource: "measure" },
+        onSaveBodyProfile: vi.fn(),
+        titleTarget: null,
+      })
+    );
+    expect(container.querySelector(".cz-fit-result-badge")).not.toBeNull();
+    expect(container.querySelector(".cz-fit4-badge")).toBeNull();
+  });
+
+  it("phone: the sheet confidence line is the only confidence claim", () => {
+    const { container } = render(
+      phone("one-badge-phone", { chest: 96, firstSizeSource: "measure" })
+    );
+    expect(container.querySelector(".cz-mobile-fit-confidence")).not.toBeNull();
+    expect(container.querySelector(".cz-fit4-badge")).toBeNull();
+  });
+
+  it("card back: keeps the strip badge, its only confidence claim", () => {
+    const { container } = render(
+      body(snug("one-badge-back"), {
+        bodyProfile: { chest: 96, firstSizeSource: "usual-fit" },
+        onSaveBodyProfile: vi.fn(),
+      })
+    );
+    expect(container.querySelector(".cz-fit-result-badge")).toBeNull();
+    expect(container.querySelector(".cz-mobile-fit-confidence")).toBeNull();
+    const badge = container.querySelector(".cz-fit4-badge");
+    expect(badge, "card back keeps the strip badge").not.toBeNull();
+    expect(badge.textContent).toMatch(/Estimated fit/);
   });
 });
 
