@@ -47,6 +47,7 @@ import {
   shoeUsualLabel,
   extendShoeRun,
   sizeCellReads,
+  fitRowWord,
   itemPhotoList,
   DETAIL_PHOTO_CAP,
   linkButtons,
@@ -2055,8 +2056,13 @@ function FitReadHeads({ kicker = null }) {
   );
 }
 
-function FitReadMeasureRows({ rows, hasChart, units }) {
-  return rows.map((r) => (
+function FitReadMeasureRows({ rows, hasChart, units, rec = null }) {
+  return rows.map((r) => {
+    // Simpler fit card (Kyle's mockup, 2026-08-09): every graded row ends in
+    // one plain word — "oversized", "a touch tight", "fine". The numbers stay;
+    // the word is what a customer reads first.
+    const word = fitRowWord(r, rec);
+    return (
     <div key={r.key} className="cz-fitread-row">
       <div className="cz-fitread-rowhead">
         <span className="cz-fitread-name">{r.name}</span>
@@ -2079,6 +2085,19 @@ function FitReadMeasureRows({ rows, hasChart, units }) {
                     }
                   >
                     {(r.ease >= 0 ? "+" : "") + formatMeasure(r.ease, units) + " room"}
+                  </span>
+                </>
+              ) : null}
+              {word ? (
+                <>
+                  {" · "}
+                  <span
+                    className={
+                      "cz-fitread-word" +
+                      (r.warn ? " is-warn" : r.soft ? " is-soft" : "")
+                    }
+                  >
+                    {word}
                   </span>
                 </>
               ) : null}
@@ -2111,7 +2130,8 @@ function FitReadMeasureRows({ rows, hasChart, units }) {
       />
       {r.note ? <div className="cz-fitread-note">{r.note}</div> : null}
     </div>
-  ));
+    );
+  });
 }
 
 // ── Fit read table (split-rail handoff 2026-07-28) ──
@@ -2142,9 +2162,34 @@ function FitReadTable({
   highlight = null,
   highlightAlt = null,
   noteText = null,
+  // Simpler fit card (Kyle's mockup, 2026-08-09): the pick drives the heading
+  // ("HOW THE MEDIUM SITS ON YOU") and gives every row its plain word. Null
+  // keeps the old FIT READ kicker and the numbers with no words.
+  rec = null,
+  // Same mockup: the source line under the bars. The host is the seller's
+  // site ("weidian.com"); "typed" means the customer entered it by hand.
+  sourceHost = "",
+  sourceVia = "",
 }) {
   const [chartOpen, setChartOpen] = useState(false);
   if (!rows.length) return null;
+  // The heading names the size the bars actually describe — the tapped one
+  // whenever the customer tapped (the caller passes verdict.shown).
+  const shownWord = rec && rec.size ? formatSizeToken(rec.size) || rec.size : "";
+  const kicker = shownWord ? "How the " + shownWord + " sits on you" : "FIT READ";
+  // Where the numbers came from, in one line. The host is the seller's own
+  // site when we know it; a hand-typed chart says so instead of naming a site
+  // it never came from.
+  const chartSource = (() => {
+    if (!hasChart || !chart || !Array.isArray(chart.rows) || !chart.rows.length) return "";
+    const count = chart.rows.length;
+    const parts = [
+      sourceVia === "typed" ? "You typed this chart" : "The seller's chart",
+      count + " size" + (count === 1 ? "" : "s"),
+    ];
+    if (sourceHost) parts.push(sourceHost);
+    return parts.join(" · ");
+  })();
   // "Inside tolerance" counts hard failures only: an ORANGE (soft) row is
   // close enough to wear, so it still counts as inside here — same verdict
   // the old +4cm slack gave, now shown honestly by the color (K 2026-08-02).
@@ -2206,20 +2251,20 @@ function FitReadTable({
           aria-expanded={chartOpen}
           onClick={() => setChartOpen((v) => !v)}
         >
-          <span className="cz-fitread-kicker">FIT READ</span>
+          <span className="cz-fitread-kicker">{kicker}</span>
           <span className="cz-fitread-toggle-hint">
             {chartOpen ? "Hide full chart" : "Full chart"}
           </span>
         </button>
       ) : null}
-      <FitReadHeads kicker={canOpenChart ? null : "FIT READ"} />
-      <FitReadMeasureRows rows={rows} hasChart={hasChart} units={units} />
+      <FitReadHeads kicker={canOpenChart ? null : kicker} />
+      <FitReadMeasureRows rows={rows} hasChart={hasChart} units={units} rec={rec} />
       {hasChart ? (
+        /* 2026-08-09 (Kyle's simpler-card mockup): the legend is two short
+           sentences. The old four-sentence version explained the dashed band
+           and the amber zone before the customer had met either. */
         <p className="cz-fitread-legend">
-          The center of the bar is your number. The line is the garment.
-          Green is the garment range that fits you. Amber is just past it,
-          close enough to wear. A dashed band means a number is missing and
-          we are not guessing at one.
+          The line is your body. The bar is the room.
         </p>
       ) : null}
       {canOpenChart && chartOpen ? (
@@ -2239,6 +2284,10 @@ function FitReadTable({
           </div>
         </div>
       ) : null}
+      {/* 2026-08-09 (Kyle's simpler-card mockup): one source line says where
+          the numbers came from — "The seller's chart · 5 sizes · weidian.com".
+          It answers "can I trust this" without a word of explanation. */}
+      {chartSource ? <p className="cz-fitread-source">{chartSource}</p> : null}
       <div className="cz-fitread-foot">
         <span className="cz-fitread-footnote">{noteText || footnote}</span>
         <span className="cz-fitread-footlinks">
@@ -5217,6 +5266,13 @@ export default function DetailBody({
                       highlightAlt={
                         verdict.shown && verdict.shown.alt ? verdict.shown.alt.size : null
                       }
+                      /* The bars describe the size on screen, so the heading
+                         and the row words follow the tap (2026-08-09). */
+                      rec={verdict.shown || verdict.rec}
+                      sourceHost={listingHostLabel(item)}
+                      sourceVia={
+                        item.sizeChartSource ? item.sizeChartSource.via || "" : ""
+                      }
                       onEditMeasures={onOpenSizes ? openProfileSizes : null}
                       onForgetChart={chartIsForgettable ? forgetChart : null}
                     />
@@ -5235,6 +5291,9 @@ export default function DetailBody({
                 highlightAlt={
                   verdict.shown && verdict.shown.alt ? verdict.shown.alt.size : null
                 }
+                rec={verdict.shown || verdict.rec}
+                sourceHost={listingHostLabel(item)}
+                sourceVia={item.sizeChartSource ? item.sizeChartSource.via || "" : ""}
                 onEditMeasures={wantsStickyBar ? null : onOpenSizes ? openProfileSizes : null}
                 onForgetChart={
                   wantsStickyBar ? null : chartIsForgettable ? forgetChart : null

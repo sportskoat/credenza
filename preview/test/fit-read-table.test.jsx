@@ -430,15 +430,20 @@ describe("FitReadTable in the detail body", () => {
     expect(table.classList.contains("is-ghost")).toBe(false);
 
     const scoped = within(table);
-    expect(scoped.getByText("FIT READ")).toBeInTheDocument();
+    // 2026-08-09 (Kyle's simpler-card mockup): the heading names the size the
+    // bars describe. CSS upper-cases it on screen.
+    expect(scoped.getByText("How the Medium sits on you")).toBeInTheDocument();
+    expect(scoped.queryByText("FIT READ")).toBe(null);
     // Redesign 2026-08-08: no TIGHT/TRUE/LOOSE scale and no column heads.
-    // The row head reads "garment X · you Y · +Z room"; the locked legend
-    // under the rows says what the bar, line, and colors mean.
+    // The row head reads "garment X · you Y · +Z room · word"; the legend
+    // under the rows is two short sentences now.
     expect(scoped.queryByText("THEIRS")).toBe(null);
     expect(scoped.queryByText("TIGHT")).toBe(null);
     expect(
-      scoped.getByText(/The center of the bar is your number/)
+      scoped.getByText("The line is your body. The bar is the room.")
     ).toBeInTheDocument();
+    // The source line says where the numbers came from.
+    expect(scoped.getByText(/The seller's chart · 3 sizes/)).toBeInTheDocument();
 
     // The picked row is M: chest 116 vs 108 = +8, shoulder 46 vs 45 = +1.
     // The garment number shows twice per row: the head and the bar tag.
@@ -502,6 +507,62 @@ describe("FitReadTable in the detail body", () => {
     expect(table.querySelectorAll(".cz-fitread-you.is-warn").length).toBe(1);
     expect(table.querySelectorAll(".cz-fitread-you.is-soft").length).toBe(0);
     expect(table.querySelectorAll(".cz-fitread-diff.is-warn").length).toBe(1);
+  });
+
+  // 2026-08-09 (Kyle's simpler-card mockup): every graded row ends in one
+  // plain word, tinted with the same tier color as the room number beside it.
+  it("ends each graded row with a plain word in the row's own tier color", () => {
+    const { container } = renderBody(fitItem());
+    const table = container.querySelector(".cz-fitread");
+    const words = [...table.querySelectorAll(".cz-fitread-word")];
+    // Chest and shoulder grade; the estimated body length stays silent.
+    expect(words.length).toBe(2);
+    expect(words.every((n) => n.textContent.trim().length > 0)).toBe(true);
+    // Inside the band on both rows, so neither wears a warning color.
+    expect(table.querySelectorAll(".cz-fitread-word.is-warn").length).toBe(0);
+    expect(table.querySelectorAll(".cz-fitread-word.is-soft").length).toBe(0);
+  });
+
+  it("says a touch loose in amber on the orange tier", () => {
+    const { container } = renderBody(fitItem(), {
+      bodyProfile: { chest: 105, shoulder: 45, height: 180, weight: 75 },
+    });
+    const table = container.querySelector(".cz-fitread");
+    const soft = table.querySelector(".cz-fitread-word.is-soft");
+    expect(soft, "soft-tier word").not.toBe(null);
+    expect(soft.textContent).toBe("a touch loose");
+  });
+
+  it("says too loose in red on the red tier", () => {
+    const { container } = renderBody(fitItem(), {
+      bodyProfile: { chest: 101, shoulder: 45, height: 180, weight: 75 },
+    });
+    const table = container.querySelector(".cz-fitread");
+    const warn = table.querySelector(".cz-fitread-word.is-warn");
+    expect(warn, "warn-tier word").not.toBe(null);
+    expect(warn.textContent).toBe("too loose");
+  });
+
+  it("the heading follows the tap", async () => {
+    const user = userEvent.setup();
+    const { container } = renderBody(fitItem());
+    expect(
+      within(container.querySelector(".cz-fitread")).getByText(
+        "How the Medium sits on you"
+      )
+    ).toBeInTheDocument();
+    const cells = [...container.querySelectorAll(".cz-sizing-chart .cz-sizing-cell")];
+    const large = cells.find((n) => {
+      const k = n.querySelector(".cz-sizing-cell-k");
+      return k && k.textContent === "Large";
+    });
+    expect(large, "Large chip").toBeTruthy();
+    await user.click(large);
+    expect(
+      within(container.querySelector(".cz-fitread")).getByText(
+        "How the Large sits on you"
+      )
+    ).toBeInTheDocument();
   });
 
   it("opens the full seller chart when FIT READ is tapped (Kyle 2026-07-31)", async () => {

@@ -16564,6 +16564,32 @@ input.cz-sizing-cell.is-custom:focus-visible {
   color: var(--cz-hair-strong);
 }
 
+/* 2026-08-09 (Kyle's simpler-card mockup): one plain word ends each graded
+   row — "oversized", "a touch tight", "fine". It carries the same tier color
+   as the room number beside it, so the words and the colors never disagree. */
+.cz-fitread-word {
+  font-weight: 500;
+  color: var(--cz-sub);
+}
+
+.cz-fitread-word.is-warn {
+  color: var(--cz-error-text);
+}
+
+.cz-fitread-word.is-soft {
+  color: var(--cz-warn-ink);
+}
+
+/* Where the numbers came from, in one line under the bars. */
+.cz-fitread-source {
+  margin: 8px 0 0;
+  font-family: var(--cz-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--cz-faint);
+}
+
 /* One plain sentence when a row can never grade (missing number, no seam). */
 .cz-fitread-note {
   margin-top: 4px;
