@@ -20445,42 +20445,58 @@ input.cz-sizing-fix-size {
     padding: 10px 18px;
     border-bottom: 1px solid var(--cz-hair);
   }
+  /* Kyle 2026-08-09: plain text tabs with a short underline on the active
+     one. The pill row ate a full band of height for three words. */
   .cz-fit-tabs {
     flex: 1 1 auto;
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 18px;
     min-width: 0;
     overflow-x: auto;
     overflow-y: hidden;
-    padding: 3px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.04);
+    padding: 0;
+    border-radius: 0;
+    background: transparent;
     scrollbar-width: none;
   }
   .cz-fit-tabs::-webkit-scrollbar { display: none; }
   .cz-fit-tab {
-    flex: 1 1 auto;
-    min-height: 40px;
-    padding: 0 14px;
+    position: relative;
+    flex: 0 0 auto;
+    min-height: 26px;
+    padding: 0 0 6px;
     border: 0;
-    border-radius: 999px;
+    border-radius: 0;
     background: transparent;
-    color: var(--cz-sub);
+    color: var(--cz-faint);
     font-family: var(--cz-sans);
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 600;
     letter-spacing: -0.01em;
     white-space: nowrap;
     cursor: pointer;
-    transition: background var(--dur-micro) var(--ease-out), color var(--dur-micro) var(--ease-out);
+    transition: color var(--dur-micro) var(--ease-out);
   }
   .cz-fit-tab:hover {
-    background: rgba(255, 255, 255, 0.08);
+    background: transparent;
+    color: var(--cz-sub);
   }
   .cz-fit-tab[aria-selected="true"] {
+    background: transparent;
+    color: #ffffff;
+  }
+  /* The underline marks the active tab. It sits under the word only, not
+     the whole row. */
+  .cz-fit-tab[aria-selected="true"]::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    border-radius: 999px;
     background: #ffffff;
-    color: #050506;
   }
   .cz-fit-tab:active {
     transform: translateY(1px);
@@ -20936,21 +20952,23 @@ input.cz-sizing-fix-size {
   }
 
   /* Size cards */
+  /* Kyle 2026-08-09: "too much white space" — the cards were 104px wide and
+     66px tall for four short lines. Tighter grid, tighter cards. */
   .cz-dpanel .cz-sizing-chart {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
-    gap: 8px;
-    margin: 0 0 14px;
+    grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
+    gap: 6px;
+    margin: 0 0 10px;
   }
   .cz-dpanel .cz-sizing-cell {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     justify-content: center;
-    gap: 4px;
-    min-height: 66px;
-    padding: 12px 12px 10px;
-    border-radius: 16px;
+    gap: 2px;
+    min-height: 54px;
+    padding: 8px 9px 7px;
+    border-radius: 12px;
     border: 1px solid var(--cz-hair-control);
     background: transparent;
     color: var(--cz-sub);
@@ -21016,6 +21034,21 @@ input.cz-sizing-fix-size {
   }
   .cz-dpanel .cz-sizing-cell.is-pick .cz-sizing-cell-v {
     color: #050506;
+  }
+  /* Kyle 2026-08-09: "now you cant see the recommendations". The picked card
+     is solid white here, and the global rules paint the verdict word and the
+     ease lines white for the green desktop fill — white on white. Both go
+     dark on this panel, so the picked card reads like every other card. */
+  .cz-dpanel .cz-sizing-cell.is-pick .cz-sizing-cell-word,
+  .cz-dpanel .cz-sizing-cell.is-pick-manual .cz-sizing-cell-word {
+    color: #050506;
+  }
+  .cz-dpanel .cz-sizing-cell.is-pick .cz-sizing-cell-word.is-fit {
+    color: var(--cz-money-on-white);
+  }
+  .cz-dpanel .cz-sizing-cell.is-pick .cz-sizing-cell-ease,
+  .cz-dpanel .cz-sizing-cell.is-pick-manual .cz-sizing-cell-ease {
+    color: rgba(5, 5, 6, 0.62);
   }
   .cz-dpanel .cz-sizing-cell-tag {
     display: inline-flex;
@@ -21127,10 +21160,22 @@ input.cz-sizing-fix-size {
     color: var(--cz-ink);
   }
   .cz-dpanel .cz-fitread {
-    margin-top: 8px;
+    margin-top: 2px;
     border: 0;
     background: transparent;
     padding: 0;
+  }
+  /* Kyle 2026-08-09: pull the header block in so the bars start higher. */
+  .cz-dpanel .cz-fit-result {
+    margin-bottom: 10px;
+  }
+  .cz-dpanel .cz-fit-result-headline {
+    font-size: 20px;
+  }
+  .cz-dpanel .cz-fit-analysis {
+    margin-bottom: 10px;
+    font-size: 13.5px;
+    line-height: 1.45;
   }
   .cz-dpanel .cz-fitread-kicker {
     color: var(--cz-faint);
@@ -21138,8 +21183,50 @@ input.cz-sizing-fix-size {
   /* 2026-08-08 redesign: rows are stacked (head above track), so the old
      five-cell grid override is gone. The panel surface is dark in both
      themes, so the light-theme tokens need these flips. */
+  /* Kyle 2026-08-09: the whole card must fit one screen. The track carried
+     54px of height for a 12px bar, so the rows shrink here: a shorter track,
+     a thinner bar, and the tags pulled in tight against it. */
   .cz-dpanel .cz-fitread-row {
-    min-height: 44px;
+    min-height: 0;
+    padding: 5px 0;
+  }
+  /* Kyle 2026-08-09: "you can reduce the width of the color'ed bars". The
+     track ran the full row width; the numbers above it already carry the
+     detail, so the bar only needs enough width to read at a glance. */
+  .cz-dpanel .cz-fitread-track {
+    height: 34px;
+    width: 72%;
+    max-width: 460px;
+  }
+  .cz-dpanel .cz-fitread-rail {
+    top: 15px;
+    height: 4px;
+  }
+  .cz-dpanel .cz-fitread-fill {
+    top: 13px;
+    height: 8px;
+  }
+  .cz-dpanel .cz-fitread-band {
+    top: 11px;
+    height: 12px;
+  }
+  .cz-dpanel .cz-fitread-soft {
+    top: 14px;
+    height: 6px;
+  }
+  .cz-dpanel .cz-fitread-you {
+    top: 8px;
+    height: 18px;
+  }
+  .cz-dpanel .cz-fitread-you-tag {
+    top: 19px;
+  }
+  .cz-dpanel .cz-fitread-garment-tick {
+    top: 10px;
+    height: 14px;
+  }
+  .cz-dpanel .cz-fitread-garment-tag {
+    font-size: 10px;
   }
   .cz-dpanel .cz-fitread-name {
     color: var(--cz-sub);

@@ -1018,8 +1018,31 @@ describe("fit-read number legibility (2026-08-08 redesign)", () => {
     const dpanel = FIT_CSS.match(/\.cz-dpanel \.cz-fitread-row\s*\{[^}]+\}/);
     expect(dpanel, "dpanel row rule missing").toBeTruthy();
     expect(dpanel[0]).not.toContain("grid-template-columns");
-    // The 44px touch floor on the panel row stays.
-    expect(dpanel[0]).toContain("min-height: 44px");
+    // The old 44px floor went on 2026-08-09 (Kyle: "too much white space").
+    // It was never a touch target — the row is a plain div with no handler,
+    // so the height bought nothing but empty space. Padding spaces the rows
+    // now, and the track carries its own height.
+    expect(dpanel[0]).toContain("min-height: 0");
+  });
+
+  // Kyle 2026-08-09: "now you cant see the recommendations". The picked card
+  // on the desktop panel is solid white, and the global rules paint the word
+  // and the ease lines white for the green desktop fill — white on white.
+  it("keeps the picked card readable on the white desktop panel card", () => {
+    const word = FIT_CSS.match(
+      /\.cz-dpanel \.cz-sizing-cell\.is-pick \.cz-sizing-cell-word,[^{]+\{[^}]+\}/
+    );
+    expect(word, "panel picked-card word rule missing").toBeTruthy();
+    expect(word[0]).toContain("#050506");
+    const ease = FIT_CSS.match(
+      /\.cz-dpanel \.cz-sizing-cell\.is-pick \.cz-sizing-cell-ease,[^{]+\{[^}]+\}/
+    );
+    expect(ease, "panel picked-card ease rule missing").toBeTruthy();
+    expect(ease[0]).toContain("rgba(5, 5, 6");
+    // The recommendation keeps its green, in the on-white value.
+    expect(FIT_CSS).toMatch(
+      /\.cz-dpanel \.cz-sizing-cell\.is-pick \.cz-sizing-cell-word\.is-fit\s*\{[^}]*var\(--cz-money-on-white\)/
+    );
   });
 
   it("draws the body-centered ruler: rail, garment tick, dashed band", () => {
