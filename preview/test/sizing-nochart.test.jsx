@@ -213,6 +213,98 @@ describe("§3 no-chart state", () => {
     );
   });
 
+  // Kyle 2026-08-08: "buttons shift around in weird locations." The chip
+  // window re-centred on every tap, so the next chip moved under the buyer's
+  // finger. The pick screen shows the whole run, sorted, and it stays put.
+  it("shoes: the full run shows sorted and stays put when a size is tapped", async () => {
+    renderBody(
+      chartless({
+        category: "shoes",
+        variants: [{ title: "Size", values: ["41", "42", "43", "46", "44", "45", "47"] }],
+      }),
+      { bodyProfile: { usualShoes: "US 10" } }
+    );
+
+    expect(await screen.findByText("No chart")).toBeInTheDocument();
+    const names = () =>
+      screen
+        .getAllByRole("button", { name: /EU \d+ · US \d+/ })
+        .map((b) => b.getAttribute("aria-label"));
+    const before = names();
+    // Seller order was 41, 42, 43, 46, 44, 45, 47 — the chips sort, and all
+    // seven show (no ±2 window on the pick screen).
+    expect(before).toEqual([
+      "EU 41 · US 8",
+      "EU 42 · US 9",
+      "EU 43 · US 10",
+      "EU 44 · US 11",
+      "EU 45 · US 12",
+      "EU 46 · US 13",
+      "EU 47 · US 14",
+    ]);
+    fireEvent.click(screen.getByRole("button", { name: "EU 46 · US 13" }));
+    expect(await screen.findByText("You picked 46.")).toBeInTheDocument();
+    expect(names()).toEqual(before);
+  });
+
+  // Kyle 2026-08-08: "shoe size in measurements say 10, fit detail clocks me
+  // as a 9." A hand pick that is not the saved usual names the usual in one
+  // plain line. The same size in the other scale is not a gap.
+  it("shoes: a pick that is not the saved usual shows the gap note", async () => {
+    renderBody(
+      chartless({
+        category: "shoes",
+        variants: [{ title: "Size", values: ["41", "42", "43"] }],
+      }),
+      { bodyProfile: { usualShoes: "US 10" } }
+    );
+
+    expect(await screen.findByText("No chart")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "EU 42 · US 9" }));
+    expect(await screen.findByText("You picked 42.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Your saved usual is US 10 (about EU 43).")
+    ).toBeInTheDocument();
+
+    // EU 43 IS the usual in the listing's scale — the note goes away.
+    fireEvent.click(screen.getByRole("button", { name: "EU 43 · US 10" }));
+    expect(await screen.findByText("You picked 43.")).toBeInTheDocument();
+    expect(screen.queryByText(/Your saved usual is/)).toBe(null);
+  });
+
+  it("letters: a pick that is not the saved usual shows the gap note", async () => {
+    renderBody(
+      chartless({
+        category: "shirt",
+        variants: [{ title: "Size", values: ["S", "M", "L", "XL"] }],
+      }),
+      { bodyProfile: { usualTops: "L" } }
+    );
+
+    expect(await screen.findByText("No chart")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "X-Large" }));
+    expect(await screen.findByText("You picked X-Large.")).toBeInTheDocument();
+    expect(screen.getByText("Your saved usual is Large.")).toBeInTheDocument();
+  });
+
+  // Spec step 3b (2026-08-08): keychains, wallets and bags have no sizes.
+  // One calm line — Kyle picked the words. No chips, no helper, and no
+  // chart-entry buttons in the Fit tab; those stay in Settings only.
+  it.each(["accessory", "bag"])("%s: one calm line, nothing else", async (category) => {
+    renderBody(chartless({ category }));
+
+    expect(await screen.findByText("No sizes")).toBeInTheDocument();
+    expect(
+      screen.getByText("One size only. The photos show how big it is.")
+    ).toBeInTheDocument();
+    expect(document.querySelector(".cz-detail-size-choices")).toBe(null);
+    expect(screen.queryByText(/Pick a size/)).toBe(null);
+    expect(screen.queryByRole("button", { name: "Upload chart photo" })).toBe(null);
+    expect(screen.queryByRole("button", { name: "Enter chart by hand" })).toBe(null);
+    expect(screen.queryByRole("button", { name: "Type the chart" })).toBe(null);
+    expect(screen.queryByRole("button", { name: "Add a chart photo" })).toBe(null);
+  });
+
   it("keeps item and profile sizing in the Size and fit section", async () => {
     const onOpenSizes = vi.fn();
     renderBody(chartless(), { onOpenSizes });

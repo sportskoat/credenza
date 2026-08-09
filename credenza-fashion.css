@@ -16318,6 +16318,12 @@ input.cz-sizing-cell.is-custom:focus-visible {
   color: var(--cz-ink);
   text-wrap: pretty;
 }
+/* The gap note (Kyle 2026-08-08): a hand pick that is not the saved usual
+   names the usual. Secondary to the pick line, never green — it is not a
+   recommendation. */
+.cz-sizing-usual-note {
+  color: var(--cz-sub);
+}
 
 /* Spec step 3 (2026-08-08): the pick screen's helper names what a tap is
    for. It never claims the size leaves the card — Kyle: the size does NOT

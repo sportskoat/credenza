@@ -40,6 +40,8 @@ import {
   formatMeasure,
   compactSizeToken,
   formatSizeToken,
+  parseShoeSizeToken,
+  shoeSizeAlt,
   shoeChipLabel,
   shoeUsualLabel,
   extendShoeRun,
@@ -1261,9 +1263,17 @@ function SizingBlockNoChart({
   // (no blocked reason, no WhatsApp, no fail code) once, and this block then
   // renders the locked pick screen instead of the old fallback wall.
   pickScreen = false,
+  // Spec step 3b (2026-08-08): non-sized categories (accessory, bag). No
+  // chips, no helper, no chart-entry actions here — those stay in Settings.
+  // One calm line; Kyle picked the words.
+  oneLiner = false,
   category = "",
   runValues = [],
   chosenSize = "",
+  // The profile usual, passed separately because usualSize above carries the
+  // hand pick once one exists. Drives the gap note (Kyle 2026-08-08: "shoe
+  // size in measurements say 10, fit detail clocks me as a 9").
+  savedUsual = "",
   customSize = "",
   onCustomChange = null,
   onCommit = null,
@@ -1321,11 +1331,45 @@ function SizingBlockNoChart({
   // truthful helper (the size stays on this card; it never goes to the
   // agent), and the same two chart-entry actions Settings carries. No green
   // anywhere: no chart means no recommendation. Nothing else on the screen.
+  if (oneLiner) {
+    return (
+      <section className="cz-sizing cz-sizing-nochart" aria-label="Sizing recommendation">
+        <div className="cz-sizing-head">
+          <span className="cz-sizing-dot" aria-hidden="true" />
+          <span className="cz-sizing-kicker">No sizes</span>
+        </div>
+        <p className="cz-sizing-nochart-body">
+          One size only. The photos show how big it is.
+        </p>
+      </section>
+    );
+  }
+
   if (pickScreen) {
     const pickHero = formatSizeToken(usualSize) || usualSize || "";
     const shoeUsual = category === "shoes" ? shoeUsualLabel(usualSize) : "";
     const pickRun =
-      category === "shoes" ? extendShoeRun(runValues, usualSize) : runValues;
+      category === "shoes" ? extendShoeRun(runValues, savedUsual || usualSize) : runValues;
+    // Gap note (Kyle 2026-08-08): a hand pick that is NOT the saved usual
+    // names the usual in one plain line, so the card never reads as if it
+    // re-measured the buyer. Same size in another scale (EU 43 vs US 10) is
+    // not a gap.
+    const sameAsUsual = (() => {
+      if (!isManual || !savedUsual) return true;
+      if (category === "shoes") {
+        const a = parseShoeSizeToken(chosenSize);
+        const b = parseShoeSizeToken(savedUsual);
+        if (!a || !b) return false;
+        const an = a.system === "eu" ? a.n : shoeSizeAlt(a.system, a.n).n;
+        const bn = b.system === "eu" ? b.n : shoeSizeAlt(b.system, b.n).n;
+        return an === bn;
+      }
+      return String(chosenSize).trim().toUpperCase() === String(savedUsual).trim().toUpperCase();
+    })();
+    const usualNote =
+      category === "shoes"
+        ? shoeUsualLabel(savedUsual)
+        : formatSizeToken(savedUsual) || savedUsual;
     return (
       <section className="cz-sizing cz-sizing-nochart" aria-label="Sizing recommendation">
         <div className="cz-sizing-head">
@@ -1344,6 +1388,11 @@ function SizingBlockNoChart({
               : `Your usual size is ${shoeUsual || pickHero}.`}
           </p>
         ) : null}
+        {!sameAsUsual && usualNote ? (
+          <p className="cz-sizing-picked cz-sizing-usual-note">
+            Your saved usual is {usualNote}.
+          </p>
+        ) : null}
         <SizeChoiceEditor
           chosenSize={chosenSize}
           recommendedSize=""
@@ -1353,6 +1402,7 @@ function SizingBlockNoChart({
           onCommit={onCommit}
           onPick={onPick}
           dualShoe={category === "shoes"}
+          fullRun
         />
         <p className="cz-sizing-helper">
           Pick a size. It's saved on this card for when you order.
@@ -2482,8 +2532,15 @@ function CustomSizeBox({ className, value, shownValue, onChange, onCommit, place
   );
 }
 
-function SizeChoiceEditor({ chosenSize, recommendedSize, runValues, choicesHidden = false, customSize, onCustomChange, onCommit, onPick, dualShoe = false }) {
-  const choices = chipSizes(runValues, chosenSize || recommendedSize);
+function SizeChoiceEditor({ chosenSize, recommendedSize, runValues, choicesHidden = false, customSize, onCustomChange, onCommit, onPick, dualShoe = false, fullRun = false }) {
+  // Kyle 2026-08-08: "buttons shift around in weird locations." The ±2 window
+  // re-centres on every tap, so the chip under the customer's finger moves.
+  // The pick screen (fullRun) shows the whole run in one stable order. The
+  // chart state keeps the window — there it frames the recommendation's
+  // neighbours, which is the point (handoff turn 3 §5).
+  const choices = fullRun
+    ? runValues || []
+    : chipSizes(runValues, chosenSize || recommendedSize);
   // The chart cells host the box themselves when they are on screen, so this
   // editor draws nothing at all rather than a second, lonely box below them.
   if (choicesHidden) return null;
@@ -3766,12 +3823,9 @@ export default function DetailBody({
   // Spec step 3 (2026-08-08): the plain no-chart case earns the locked pick
   // screen. Every special state keeps its own honest wall instead: signed
   // out, any blocked reason, a borrowed chart to clear, a WhatsApp seller, a
-  // link-failure code, or a bare Taobao listing. Accessories and bags wait
-  // for the non-sized treatment (copy TBD with Kyle).
-  const noChartPickScreen =
+  // link-failure code, or a bare Taobao listing.
+  const noChartPlain =
     noChart &&
-    item.category !== "accessory" &&
-    item.category !== "bag" &&
     item.needsSignIn !== true &&
     huntAuthBlocked !== true &&
     huntCapBlocked !== true &&
@@ -3783,6 +3837,12 @@ export default function DetailBody({
     !whatsAppChatUrl(item.whatsapp || "") &&
     !(item.failCode && LINK_FAIL_COPY[item.failCode]) &&
     listingInfoOf(item) !== "bare";
+  // Sized categories get the pick screen. Non-sized (keychains, wallets,
+  // bags) get one calm line — Kyle picked the words 2026-08-08: "One size
+  // only. The photos show how big it is."
+  const nonSizedCategory = item.category === "accessory" || item.category === "bag";
+  const noChartPickScreen = noChartPlain && !nonSizedCategory;
+  const noChartOneLiner = noChartPlain && nonSizedCategory;
   useEffect(() => {
     const url = chartPhotoUrlRef.current;
     if (url && chartRead.thumb !== url) {
@@ -4815,9 +4875,11 @@ export default function DetailBody({
                 listingInfo={listingInfoOf(item)}
                 onClearChart={clearBlockedChart}
                 pickScreen={noChartPickScreen}
+                oneLiner={noChartOneLiner}
                 category={item.category}
                 runValues={verdict.runValues}
                 chosenSize={chosenSize}
+                savedUsual={verdict.usualSize}
                 customSize={customSize}
                 onCustomChange={setCustomSize}
                 onCommit={commitCustomSize}
@@ -4868,7 +4930,7 @@ export default function DetailBody({
                 Round 5 point 5.1: when the chart cells above already pick,
                 the plain chip row here would repeat them — so it hides and
                 only the odd-size field stays. */}
-            {!askingMeasures && !sizeBusy && !noChartPickScreen ? (
+            {!askingMeasures && !sizeBusy && !noChartPickScreen && !noChartOneLiner ? (
               <SizeChoiceEditor
                 chosenSize={chosenSize}
                 /* Spec step 3 (2026-08-08): no green before a chart. Green only
@@ -5052,8 +5114,9 @@ export default function DetailBody({
 
             {/* Spec step 3 (2026-08-08): the pick screen carries its own two
                 chart-entry actions, so this bottom row would say the same
-                thing twice there. Every other state keeps it. */}
-            {!noChartPickScreen ? (
+                thing twice there. Spec step 3b: non-sized categories keep
+                chart entry in Settings only. Every other state keeps it. */}
+            {!noChartPickScreen && !noChartOneLiner ? (
             <div className="cz-detail-chart-actions">
               {/* Kyle 2026-07-30: a chart photo is not always readable, and a
                   seller sometimes prints the numbers in the listing text. Four

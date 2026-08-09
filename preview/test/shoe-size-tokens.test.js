@@ -63,6 +63,13 @@ describe("extendShoeRun", () => {
     expect(extendShoeRun(["40", "42"], "EU 41")).toEqual(["40", "41", "42"]);
   });
 
+  it("sorts the seller's raw variant order (Kyle 2026-08-08: his listing ran 41, 42, 43, 46, 44, 45 and the chips read as broken)", () => {
+    expect(extendShoeRun(["41", "42", "43", "46", "44", "45"], "US 10")).toEqual([
+      "41", "42", "43", "44", "45", "46",
+    ]);
+    expect(extendShoeRun(["43", "46", "44"], "US 10")).toEqual(["43", "44", "46"]);
+  });
+
   it("leaves a run that already covers the usual, and every letter run, alone", () => {
     expect(extendShoeRun(["42", "43", "44"], "US 10")).toEqual(["42", "43", "44"]);
     expect(extendShoeRun(["S", "M", "L"], "US 10")).toEqual(["S", "M", "L"]);

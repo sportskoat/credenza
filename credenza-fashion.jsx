@@ -5952,34 +5952,35 @@ export function shoeUsualLabel(value) {
 // The chip run must cover the buyer's converted usual size (Kyle 2026-08-08:
 // "a US 10 needs chips up to EU 43+, not 39"). The chips speak the LISTING's
 // scale, so the usual converts into the run's own system before the compare.
-// Extends only a shoe-like run, inserts in numeric order, and matches the
-// run's token style (bare number vs labelled). Letter runs pass through.
+// The run returns in numeric order: seller variant order is noise (Kyle's
+// 2026-08-08 listing ran 41, 42, 43, 46, 44, 45 and the chips read as broken).
+// Extends only a shoe-like run and matches the run's token style (bare number
+// vs labelled). Letter runs pass through untouched.
 export function extendShoeRun(runValues, usualSize) {
   const run = Array.isArray(runValues) ? runValues.slice() : [];
-  const u = parseShoeSizeToken(usualSize);
-  if (!u) return run;
   const parsed = run.map((v) => parseShoeSizeToken(v));
   const first = parsed.find(Boolean);
   if (!first) return run;
   const sys = first.system;
-  const inRunScale = sys === u.system ? u : shoeSizeAlt(u.system, u.n);
-  if (parsed.some((p) => p && p.system === sys && p.n === inRunScale.n)) return run;
-  const bareStyle = run.some(
-    (v, i) => parsed[i] && String(v).trim().toUpperCase() === String(parsed[i].n)
-  );
-  const token = bareStyle ? String(inRunScale.n) : shoeSizeLabel(sys, inRunScale.n);
-  const out = [];
-  let inserted = false;
-  for (let i = 0; i < run.length; i += 1) {
-    const p = parsed[i];
-    if (!inserted && p && (p.system !== sys || p.n > inRunScale.n)) {
-      out.push(token);
-      inserted = true;
+  const entries = run.map((v, i) => ({ v, p: parsed[i] }));
+  const u = parseShoeSizeToken(usualSize);
+  if (u) {
+    const inRunScale = sys === u.system ? u : shoeSizeAlt(u.system, u.n);
+    if (!parsed.some((p) => p && p.system === sys && p.n === inRunScale.n)) {
+      const bareStyle = run.some(
+        (v, i) => parsed[i] && String(v).trim().toUpperCase() === String(parsed[i].n)
+      );
+      const token = bareStyle ? String(inRunScale.n) : shoeSizeLabel(sys, inRunScale.n);
+      entries.push({ v: token, p: inRunScale });
     }
-    out.push(run[i]);
   }
-  if (!inserted) out.push(token);
-  return out;
+  const keyOf = (p) => (p.system === sys ? p.n : shoeSizeAlt(p.system, p.n).n);
+  const parseable = entries.filter((e) => e.p);
+  parseable.sort((a, b) => keyOf(a.p) - keyOf(b.p));
+  // Tokens the parser cannot read (rare in a shoe run) keep their relative
+  // order at the end rather than vanishing.
+  const rest = entries.filter((e) => !e.p);
+  return [...parseable.map((e) => e.v), ...rest.map((e) => e.v)];
 }
 
 // Size options: listing variants first, then common apparel/shoe sizes.
