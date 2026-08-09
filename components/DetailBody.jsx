@@ -2140,12 +2140,14 @@ function FitReadMeasureRows({ rows, hasChart, units, rec = null }) {
           bandLeft={r.bandLeft}
           bandWidth={r.bandWidth}
         />
-        <span className={"cz-fitread-theirs" + (r.theirs == null ? " is-unknown" : "")}>
-          {r.theirs != null
-            ? formatMeasure(r.theirs, units)
-            : r.notOnChart
-              ? "not on the seller's chart"
-              : "—"}
+        {/* A measure the seller never printed says so in its own column, in
+            two words — the column is seven characters wide, and the full
+            sentence lives in the footnote below the table. */}
+        <span
+          className={"cz-fitread-theirs" + (r.theirs == null ? " is-unknown" : "")}
+          title={r.theirs == null && r.notOnChart ? "not on the seller's chart" : undefined}
+        >
+          {r.theirs != null ? formatMeasure(r.theirs, units) : r.notOnChart ? "no data" : "—"}
         </span>
         <span className={"cz-fitread-yours" + (r.yours == null ? " is-unknown" : "")}>
           {r.yours != null

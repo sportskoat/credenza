@@ -895,11 +895,12 @@ describe("a measurement the seller does not print", () => {
     const footnote = container.querySelector(".cz-fitread-footnote").textContent;
     expect(footnote).toContain("The seller does not print the shoulder.");
     expect(footnote).toContain("Type it in or read the chart photo.");
-    expect(
-      within(container.querySelector(".cz-fitread")).getAllByText(
-        "not on the seller's chart"
-      ).length
-    ).toBe(1);
+    // 2026-08-09 round 3: the THEIRS column is seven characters wide, so it
+    // says "no data" and carries the full sentence as its tooltip. The
+    // footnote above already spells it out.
+    const cell = within(container.querySelector(".cz-fitread")).getByText("no data");
+    expect(cell).toBeInTheDocument();
+    expect(cell.getAttribute("title")).toBe("not on the seller's chart");
   });
 });
 
