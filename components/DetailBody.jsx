@@ -3911,9 +3911,23 @@ export default function DetailBody({
     item.category === "pants" || item.category === "shorts"
       ? ["waist", "hip"]
       : ["chest", "shoulder"];
-  const headerBlocked = fitRows.some(
-    (row) => HEADER_BLOCKER_KEYS.includes(row.key) && row.warn
-  );
+  // Kyle 2026-08-09: "It says take a medium, even though it's tight." The
+  // card said "Take the Medium." with a green "Verified fit" badge while the
+  // Medium chip below it said TIGHT. His tee's chart has no good size — the
+  // Medium is +1.3in and the Large jumps to +6in — so the Medium is only the
+  // CLOSEST, not a fit. The blocker used to need a RED bar; that chest bar is
+  // amber. Amber now blocks the green claim too. The pick does not move; only
+  // the promise changes. Two lanes ruled the same way.
+  // Two conditions, either one blocks. They agree on every real item we have,
+  // and each closes a hole the other leaves:
+  //   1. The recommended chip does not say FITS. This is the one the shopper
+  //      reads, so the badge can never contradict the word right below it.
+  //   2. A deciding bar is amber or red. This catches a shoulder that misses
+  //      while the chest chip still says FITS.
+  const recChipWord = (cellReads.find((r) => r.isPick) || {}).word || null;
+  const headerBlocked =
+    (recChipWord != null && recChipWord !== "FITS") ||
+    fitRows.some((row) => HEADER_BLOCKER_KEYS.includes(row.key) && (row.warn || row.soft));
   // "Forget this chart" (split rail): the parse was wrong, so the stored
   // measurements go. Only offered when dropping sizeNotes actually kills the
   // chart — one parsed from the listing's own text would survive the clear,
@@ -4424,9 +4438,14 @@ export default function DetailBody({
   const mobileChosenWord = formatSizeToken(chosenSize) || chosenSize;
   // Debate 2026-08-08: only blocker rows flip the phone header. A red length
   // or sleeve warns on its own bar but never downgrades the verdict.
-  const mobileOutsideCount = fitRows.filter(
-    (row) => HEADER_BLOCKER_KEYS.includes(row.key) && row.warn
-  ).length;
+  // Amber counts here too (Kyle 2026-08-09) — the phone header made the same
+  // green promise the desktop badge did.
+  const mobileOutsideCount =
+    recChipWord != null && recChipWord !== "FITS"
+      ? 1
+      : fitRows.filter(
+          (row) => HEADER_BLOCKER_KEYS.includes(row.key) && (row.warn || row.soft)
+        ).length;
   const mobileFitKicker = verdict.chart ? "We recommend" : "No seller chart";
   // Derived body must not claim "Precise fit" on the phone line either
   // (F retraction 2026-08-04 — frame 4 / mobileConfidence; was chart-only).
@@ -4434,9 +4453,12 @@ export default function DetailBody({
   const mobileDerivedBody = isDerivedBodySource(bodyProfile);
   const mobileEstimated =
     verdict.chart && !mobileOutsideCount && mobileDerivedBody;
+  // "Roomy for this cut" was written when only a RED bar could get here, and
+  // it never described a tight fit. It says the same thing the desktop badge
+  // says now: this is the closest size the seller offers.
   const mobileConfidence = verdict.chart
     ? mobileOutsideCount
-      ? "Roomy for this cut"
+      ? "Closest available"
       : mobileEstimated
         ? "Estimated fit"
         : "Precise fit"

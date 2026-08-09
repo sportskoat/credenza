@@ -1275,6 +1275,57 @@ describe("DetailBody derived-body rail and confidence", () => {
     expect(badge.textContent).not.toMatch(/Verified fit/);
   });
 
+  // Kyle 2026-08-09: "It says take a medium, even though it's tight." The
+  // card promised a verified fit while its own Medium chip said TIGHT. His
+  // tee's chart has no good size — the Medium is +3.3cm and the Large jumps
+  // to +15.2cm — so the Medium is only the CLOSEST size the seller sells.
+  // The old rule needed a RED bar; that chest bar is amber. Three lanes ruled
+  // the same way: the badge must never contradict the chip below it.
+  it("amber chest bar desktop: the badge cannot outrank its own chip", () => {
+    const noGoodSize = item("soft-conf", {
+      sizeNotes:
+        "M: chest 110, shoulder 48, length 71.9\n" +
+        "L: chest 121.9, shoulder 51.8, length 73.9\n" +
+        "XL: chest 132, shoulder 55.4, length 75.9",
+    });
+    const { container } = render(
+      body(noGoodSize, {
+        bodyProfile: { chest: 106.7, shoulder: 48.3, firstSizeSource: "measure" },
+        onSaveBodyProfile: vi.fn(),
+        titleTarget: null,
+      })
+    );
+    // The pick does not move. Only the promise changes.
+    expect(container.querySelector(".cz-fit-result-headline").textContent).toMatch(/Medium/);
+    const badge = container.querySelector(".cz-fit-result-badge");
+    expect(badge.textContent).toMatch(/Closest available/);
+    expect(badge.textContent).not.toMatch(/Verified fit/);
+    // The chip keeps its honest word. It is the reason the badge stepped down.
+    const words = [...container.querySelectorAll(".cz-sizing-cell-word")].map(
+      (n) => n.textContent
+    );
+    expect(words, "the pick's own chip still says TIGHT").toContain("TIGHT");
+    expect(words).not.toContain("YOUR FIT");
+  });
+
+  // The other half of the same rule: a chart that DOES fit keeps its green
+  // claim. The badge only steps down when there is something to step down for.
+  it("a size that really fits keeps the green Verified fit badge", () => {
+    const good = item("good-conf", {
+      sizeNotes: "M: chest 114, shoulder 48.3, length 71.9\nL: chest 119, shoulder 50.3, length 73.9",
+    });
+    const { container } = render(
+      body(good, {
+        bodyProfile: { chest: 106.7, shoulder: 48.3, firstSizeSource: "measure" },
+        onSaveBodyProfile: vi.fn(),
+        titleTarget: null,
+      })
+    );
+    const badge = container.querySelector(".cz-fit-result-badge");
+    expect(badge.textContent).toMatch(/Verified fit/);
+    expect(badge.textContent).not.toMatch(/Closest available/);
+  });
+
   // The same debate: length never blocks. A red length bar warns on its own
   // row but the header keeps its green claim when the chest is inside.
   it("red length bar desktop: confidence stays Verified fit", () => {
@@ -1346,8 +1397,11 @@ describe("DetailBody derived-body rail and confidence", () => {
   });
 
   // Leaf gate: roominess is about garment ease, not body provenance.
-  // Derived body + out-of-tolerance measure still says Roomy, not Estimated.
-  it("brand-match phone with roomy chart: still Roomy for this cut, not Estimated fit", () => {
+  // A derived body plus an out-of-tolerance measure still names the ease
+  // problem, not the body one. 2026-08-09: the words changed from "Roomy for
+  // this cut" to "Closest available". The old phrase was written when only a
+  // RED bar could reach this branch, and it never described a tight fit.
+  it("brand-match phone with roomy chart: still Closest available, not Estimated fit", () => {
     const { container } = render(
       body(charted("bm-roomy-phone"), {
         bodyProfile: {
@@ -1363,7 +1417,7 @@ describe("DetailBody derived-body rail and confidence", () => {
     );
     const conf = container.querySelector(".cz-mobile-fit-confidence");
     expect(conf, "phone confidence line").not.toBeNull();
-    expect(conf.textContent).toMatch(/Roomy for this cut/);
+    expect(conf.textContent).toMatch(/Closest available/);
     expect(conf.textContent).not.toMatch(/Estimated fit/);
     expect(conf.textContent).not.toMatch(/Precise fit/);
     // Tone classes off — parent is-warn owns the colour.
