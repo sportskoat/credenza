@@ -292,24 +292,35 @@ on first load; in-shelf switches never remount and stay instant.
 ## 4. Half-finished work, exact state
 
 - **Size-chart redesign program** (2026-08-08, Kimi session, spec at
-  `docs/size-chart-redesign-spec.md`, uncommitted). Approved by Kyle
+  `docs/size-chart-redesign-spec.md`). Approved by Kyle
   across two days of debate with five model lanes. Locked rulings that
   override earlier notes in this file: green stays for the recommended
   size, motion stays (shimmer and bar entry animation), one tap saves a
   size and the last tap wins (verified in the live app with Playwright:
   the tap persists `item.size` across reload, no confirm step, and Kyle
-  ruled this stays). The six-step build order, nothing started: (1) new
-  garment-centered ease bars per the mockup Kyle approved
-  (`~/Desktop/ease-bar-mockup.html`) plus locked tolerance bands, (2)
-  loading states that hide the size section behind honest status lines,
-  (3) the no-chart Fit tab for sized categories (both size systems on
-  every chip, e.g. "EU 43 · US 10", chips must cover the buyer's usual
-  size, helper line "Pick a size. It's saved on this card for when you
-  order.", the two chart-entry actions from Settings) plus a one-line
-  no-sizes treatment for accessories like keychains and wallets, (4)
-  photo fallback so a found chart photo always shows even when the parse
-  fails, (5) cheap vision pre-check so one paid read almost always hits,
-  (6) deferred items in the spec. The size does NOT go to the buying
+  ruled this stays). **Steps 1–3 SHIPPED 2026-08-08 in commit `d514f4d`**
+  (gates from `preview/`: build, 4108 tests, lint 0 errors, typecheck;
+  Playwright screenshots in `/tmp/cz-debate/`: `size-area.png`,
+  `table-calm.png`, `busy-hunt.png`, `busy-read.png`, `shoe-pick.png`).
+  Shipped: (1) garment-centered ease bars per the approved mockup plus
+  locked tolerance bands, a pinned "Your size" line, a calm chart table
+  row (inset marker + "Recommended" tag instead of the inverted fill),
+  grey fit ladder; (2) loading states — the whole size section hides
+  behind one honest status line ("Looking for the size chart photo…" /
+  "Reading the size chart…"), the pinned line stays; (3) the no-chart
+  Fit tab pick screen for SIZED categories — first line ("No size chart
+  for this one yet." or the tier-2 no-measurements line), the saved
+  usual, chips in the LISTING's scale (shoe chips show both systems,
+  "EU 43 · US 10", and `extendShoeRun` in `credenza-fashion.jsx` extends
+  the run to cover the buyer's converted usual), helper "Pick a size.
+  It's saved on this card for when you order.", and the two Settings
+  chart-entry actions. Green only means money or a recommendation: the
+  pinned line is green only for a chart-based pick (`.cz-your-size.is-rec`).
+  **Still open:** the accessories one-line treatment (category
+  accessory/bag) waits for Kyle to pick copy — do NOT build before he
+  picks; step 4 (photo fallback so a found chart photo always shows even
+  when the parse fails); step 5 (cheap vision pre-check); step 6
+  (deferred items). The size does NOT go to the buying
   agent; Kyle rejected clipboard and per-agent link ideas on 2026-08-08,
   so helper copy must never claim otherwise. Note the overlap with the
   contact-sheet and cache-miss entries below: those are pipeline-side
