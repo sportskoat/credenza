@@ -1490,7 +1490,13 @@ export const CHEST_EASE_BANDS = {
   knit: [5, 10],
   knitRelaxed: [10, 15],
   knitOver: [15, 25],
-  woven: [5, 15],
+  woven: [10, 15],
+  // Three shirt bands (four-lane debate 2026-08-08, stage 3): one broad
+  // 5–15 band made every shirt read the same, and shirts were the kind we
+  // could not get right. Slim and roomy get their own bands; the declared
+  // fit in the title picks one when the customer saved no taste.
+  wovenSlim: [5, 10],
+  wovenRoomy: [15, 22],
   blazer: [7.5, 12.5],
   coat: [12.5, 25],
   // The oversized-taste coat band sits above the regular coat band. Without
@@ -1515,10 +1521,12 @@ export function chestEaseBand(kind, cut, looseness) {
     if (looseness === "oversized" || looseness === "baggy") return CHEST_EASE_BANDS.coatOver;
     return CHEST_EASE_BANDS.coat;
   }
-  // C: a woven shirt is one broad band "adjusted by the declared fit".
+  // A woven shirt reads one of three bands (debate 2026-08-08, stage 3).
+  // The customer's saved taste picks first; the seller's declared fit in
+  // the title stands in when no taste is saved (see recommendSize).
   if (kind === "woven") {
-    if (looseness === "slim") return CHEST_EASE_BANDS.knitSlim;
-    if (looseness === "oversized" || looseness === "baggy") return CHEST_EASE_BANDS.knitOver;
+    if (looseness === "slim") return CHEST_EASE_BANDS.wovenSlim;
+    if (looseness === "oversized" || looseness === "baggy") return CHEST_EASE_BANDS.wovenRoomy;
     return CHEST_EASE_BANDS.woven;
   }
   if (kind !== "knit") return null;
@@ -2340,6 +2348,17 @@ export function garmentReasonLine(rec) {
     }
     if (high === CHEST_EASE_BANDS.knitSlim[1]) {
       return "Tee: sized close to the body, the way you like them.";
+    }
+  }
+  // Three shirt bands (debate 2026-08-08, stage 3): the line names the room
+  // the pick actually used, or it argues with the centimetres under it.
+  if (rec.garmentKind === "woven") {
+    const [low] = rec.easeBand;
+    if (low === CHEST_EASE_BANDS.wovenRoomy[0]) {
+      return "Roomy shirt: sized to hang loose, which is the cut.";
+    }
+    if (low === CHEST_EASE_BANDS.wovenSlim[0]) {
+      return "Slim shirt: sized close to the body, the way the cut intends.";
     }
   }
   return GARMENT_REASON[rec.garmentKind] || "";

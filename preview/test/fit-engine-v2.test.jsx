@@ -134,6 +134,17 @@ describe("the room each garment gets", () => {
     expect(chestEaseBand("knit", "drop", null)).toEqual([10, 15]);
   });
 
+  it("splits a woven shirt into slim, regular, and roomy bands", () => {
+    // Debate 2026-08-08, stage 3: one broad 5–15 band made every shirt read
+    // the same. Three bands now: slim 5–10, regular 10–15, roomy 15–22.
+    expect(CHEST_EASE_BANDS.wovenSlim).toEqual([5, 10]);
+    expect(CHEST_EASE_BANDS.woven).toEqual([10, 15]);
+    expect(CHEST_EASE_BANDS.wovenRoomy).toEqual([15, 22]);
+    expect(chestEaseBand("woven", "set-in", null)).toEqual([10, 15]);
+    expect(chestEaseBand("woven", "set-in", "slim")).toEqual([5, 10]);
+    expect(chestEaseBand("woven", null, "oversized")).toEqual([15, 22]);
+  });
+
   it("hands back nothing for a garment it cannot name", () => {
     expect(chestEaseBand("unknown", "set-in", null)).toBeNull();
     expect(chestEaseBand("pants", null, null)).toBeNull();
