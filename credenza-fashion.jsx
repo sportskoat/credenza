@@ -2300,6 +2300,13 @@ export function sizeCellReads(chart, rec, profile) {
   if (lo == null || hi == null) return [];
   const softDelta = fitReadSoftDelta(key);
   const pick = rec.size != null ? String(rec.size).toUpperCase() : null;
+  // The chip carries two ease lines: the deciding measure (CH on tops, WA on
+  // bottoms) plus its partner (SH, or HIP). A missing number on either side
+  // drops the line — the chip shows only what both sides hold.
+  const partnerKey = key === "chest" ? "shoulder" : key === "waist" ? "hip" : "waist";
+  const EASE_LINE_LABELS = { chest: "CH", shoulder: "SH", waist: "WA", hip: "HIP" };
+  const partnerBody =
+    p[partnerKey] != null && isFinite(Number(p[partnerKey])) ? Number(p[partnerKey]) : null;
   return chart.rows
     .filter((r) => r && r.size && r[key] != null && isFinite(Number(r[key])))
     .map((r) => {
@@ -2310,11 +2317,21 @@ export function sizeCellReads(chart, rec, profile) {
       else if (ease - hi <= softDelta) word = "LOOSE";
       else if (ease - hi <= softDelta * 2) word = "BIG";
       else word = "TOO BIG";
+      const extra =
+        partnerBody != null && r[partnerKey] != null && isFinite(Number(r[partnerKey]))
+          ? {
+              key: partnerKey,
+              label: EASE_LINE_LABELS[partnerKey],
+              ease: Number(r[partnerKey]) - partnerBody,
+            }
+          : null;
       return {
         size: r.size,
         row: r,
         ease,
+        label: EASE_LINE_LABELS[key] || key.toUpperCase(),
         word,
+        extra,
         isPick: pick != null && String(r.size).toUpperCase() === pick,
       };
     });

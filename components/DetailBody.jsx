@@ -46,6 +46,7 @@ import {
   shoeChipLabel,
   shoeUsualLabel,
   extendShoeRun,
+  sizeCellReads,
   itemPhotoList,
   DETAIL_PHOTO_CAP,
   linkButtons,
@@ -577,6 +578,10 @@ function SizingBlock({
   // to sit under the pick — same fact, no new block, no new row.
   typeWord = "",
   onPick,
+  // Simpler fit card (Kyle's mockup, 2026-08-09): per-size reads from
+  // sizeCellReads — word + two ease lines per chip. Empty when no body number
+  // exists; the plain garment-measure cells below are the fallback.
+  cellReads = null,
   // Kyle 2026-07-29: the fifth box rides at the right of the cell run, on the
   // same line as the sizes it overrides. Null when the caller has no box.
   customBox = null,
@@ -783,8 +788,65 @@ function SizingBlock({
       {/* Round 5 point 5.1: the measurement cells double as the size picker.
           One row does both jobs — before, a second plain chip row under it
           offered the same sizes again. Tap the picked cell to clear the
-          pick. */}
-      {cells.length ? (
+          pick. 2026-08-09 (Kyle's simpler-card mockup): with body numbers
+          present, each chip grades itself — size, verdict word, and the two
+          ease lines. Without them the plain garment-measure cells stand in. */}
+      {cellReads && cellReads.length ? (
+        <div className="cz-sizing-chart" role="group" aria-label="Item size choices">
+          {cellReads.map((read) => {
+            const picked =
+              String(read.size).toUpperCase() === String(heroSize).toUpperCase();
+            const manualOffPick = picked && isManual && !read.isPick;
+            // The word slot: the recommendation says YOUR FIT, any other
+            // in-band size says ALSO FITS, and a hand pick that disagrees
+            // names itself YOUR PICK (the advice stays on its own chip).
+            const word = manualOffPick
+              ? "YOUR PICK"
+              : read.word === "FITS"
+                ? read.isPick
+                  ? "YOUR FIT"
+                  : "ALSO FITS"
+                : read.word;
+            const tone =
+              word === "YOUR FIT"
+                ? " is-fit"
+                : word === "TIGHT" || word === "BIG"
+                  ? " is-warn"
+                  : word === "TOO SMALL" || word === "TOO BIG"
+                    ? " is-bad"
+                    : "";
+            const signed = (v) => (v >= 0 ? "+" : "") + formatMeasure(v, units);
+            return (
+              <button
+                key={read.size}
+                type="button"
+                className={
+                  "cz-sizing-cell has-reads" +
+                  (picked ? " is-pick" : "") +
+                  (manualOffPick ? " is-pick-manual" : "") +
+                  (read.isPick ? " is-rec" : "")
+                }
+                aria-pressed={isManual && picked}
+                // A tap always picks; clearing keeps its own doors (the Other
+                // box). See the legacy cells below for the ruling's history.
+                onClick={() => onPick && onPick(String(read.size))}
+              >
+                <span className="cz-sizing-cell-k">{formatSizeToken(read.size) || read.size}</span>
+                <span className={"cz-sizing-cell-word" + tone}>{word}</span>
+                <span className="cz-sizing-cell-ease">
+                  {read.label} {signed(read.ease)}
+                </span>
+                {/* Always mounted, empty when the partner number is missing —
+                    the row keeps one height, same ruling as the old tag lane. */}
+                <span className="cz-sizing-cell-ease" aria-hidden={read.extra ? undefined : true}>
+                  {read.extra ? read.extra.label + " " + signed(read.extra.ease) : ""}
+                </span>
+              </button>
+            );
+          })}
+          {customBox}
+        </div>
+      ) : cells.length ? (
         <div className="cz-sizing-chart" role="group" aria-label="Item size choices">
           {cells.map((row) => {
             const picked =
@@ -3711,6 +3773,14 @@ export default function DetailBody({
     verdict.chart && Array.isArray(verdict.chart.rows)
       ? verdict.chart.rows.filter((r) => r.size && r[sizeMeasureKey] != null).slice(0, 6)
       : [];
+  // Simpler fit card (Kyle's mockup, 2026-08-09): each chip grades itself
+  // against the pick's band — the word and the two ease lines ride on the
+  // cell. Empty without a body number; SizingBlock falls back to the plain
+  // garment-measure cells then.
+  const cellReads = useMemo(
+    () => sizeCellReads(verdict.chart, verdict.rec, effectiveBodyProfile(bodyProfile)).slice(0, 6),
+    [verdict.chart, verdict.rec, bodyProfile]
+  );
   // Spec step 1 item 4 (2026-08-08): one pinned line at the top of the size
   // area names the size this card holds. A hand pick outranks the
   // recommendation (last tap wins). The line sits above every swap below —
@@ -4939,6 +5009,7 @@ export default function DetailBody({
                 units={measureUnits}
                 reduced={reduced}
                 cells={sizeCells}
+                cellReads={cellReads}
                 measureKey={sizeMeasureKey}
                 typeWord={garmentTypeWord(verdict.rec)}
                 onPick={pickItemSize}

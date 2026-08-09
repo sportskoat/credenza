@@ -38,6 +38,20 @@ describe("sizeCellReads grades every size against the band", () => {
     expect(reads.find((r) => r.size === "L").isPick).toBe(false);
   });
 
+  it("carries the partner ease line when both sides hold the number", () => {
+    // Tops partner the chest with the shoulder. Body shoulder 45.
+    const withShoulders = chartOf(
+      "S: chest 104, shoulder 44, length 68\nM: chest 107, shoulder 46, length 70"
+    );
+    const out = sizeCellReads(withShoulders, rec, { chest: 100, shoulder: 45 });
+    expect(out[0].label).toBe("CH");
+    expect(out[0].extra).toEqual({ key: "shoulder", label: "SH", ease: -1 });
+    expect(out[1].extra).toEqual({ key: "shoulder", label: "SH", ease: 1 });
+    // No body shoulder, no partner line.
+    const noBody = sizeCellReads(withShoulders, rec, { chest: 100 });
+    expect(noBody[0].extra).toBeNull();
+  });
+
   it("says TOO SMALL when the ease is more than a soft delta under the band", () => {
     const tiny = chartOf("S: chest 94, length 66\nM: chest 107, length 70");
     const out = sizeCellReads(tiny, rec, { chest: 100 });
