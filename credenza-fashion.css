@@ -16586,15 +16586,8 @@ input.cz-sizing-cell.is-custom:focus-visible {
   color: var(--cz-warn-ink);
 }
 
-/* Where the numbers came from, in one line under the bars. */
-.cz-fitread-source {
-  margin: 8px 0 0;
-  font-family: var(--cz-mono);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  color: var(--cz-faint);
-}
+/* .cz-fitread-source retired 2026-08-09 — it printed the same sentence the
+   seller-chart fold header prints, one line above it. */
 
 /* One plain sentence when a row can never grade (missing number, no seam). */
 .cz-fitread-note {
@@ -16604,14 +16597,9 @@ input.cz-sizing-cell.is-custom:focus-visible {
   color: var(--cz-placeholder);
 }
 
-/* Locked legend (2026-08-08 spec): what the bar, line, and colors mean. */
-.cz-fitread-legend {
-  margin: 8px 0 0;
-  font-size: 11px;
-  line-height: 1.5;
-  color: var(--cz-placeholder);
-  text-wrap: pretty;
-}
+/* .cz-fitread-legend retired 2026-08-09 (Fable's verdict). With the soft
+   zones and the target outline gone, one bar runs body to garment in one
+   colour. It needs no sentence to explain it. */
 
 .cz-fitread-heads {
   border-top: 0;
@@ -16765,18 +16753,11 @@ input.cz-sizing-cell.is-custom:focus-visible {
   background: var(--cz-error-text);
 }
 
-/* The amber "get away with it" zones flank the band out to the per-measure
-   soft delta, positioned inline from the same ruler as the band and the
-   YOU line, so the three colors never disagree. */
-.cz-fitread-soft {
-  position: absolute;
-  top: 23px;
-  height: 8px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--cz-warn) 32%, transparent);
-  transform-origin: center;
-  animation: cz-fitread-grow var(--dur-open) var(--ease-out) both;
-}
+/* .cz-fitread-soft retired 2026-08-09 (Fable's verdict, after Kyle: "it
+   looks very bad"). The amber flanking stubs rendered olive-brown on the
+   dark panel and stacked a fourth shape on one track. The soft TIER still
+   exists — it colours the room fill, the number, the word, and the body
+   line. It just no longer draws its own zone. */
 
 @keyframes cz-fitread-grow {
   from { transform: scaleX(0); }
@@ -16879,7 +16860,7 @@ input.cz-sizing-cell.is-custom:focus-visible {
   }
 
   .cz-fitread-band,
-  .cz-fitread-soft,
+  .cz-fitread-fill,
   .cz-fitread-garment,
   .cz-fitread-you {
     animation: none;
@@ -21210,10 +21191,6 @@ input.cz-sizing-fix-size {
     top: 11px;
     height: 12px;
   }
-  .cz-dpanel .cz-fitread-soft {
-    top: 14px;
-    height: 6px;
-  }
   .cz-dpanel .cz-fitread-you {
     top: 8px;
     height: 18px;
@@ -21249,13 +21226,9 @@ input.cz-sizing-fix-size {
   .cz-dpanel .cz-fitread-rail {
     background: var(--cz-track);
   }
-  .cz-dpanel .cz-fitread-band {
-    background: rgba(74, 222, 128, 0.34);
-  }
-  /* The dark-panel green above must not repaint a dashed (no-verdict) row. */
-  .cz-dpanel .cz-fitread-band.is-dashed {
-    background: transparent;
-  }
+  /* The solid green band went 2026-08-09. It painted a raw colour (not a
+     token) UNDER the room fill, which is what turned the bars to mud. Only
+     the dashed no-verdict band survives, and it draws no fill. */
   .cz-dpanel .cz-fitread-garment-tick {
     background: var(--cz-faint);
   }
@@ -21592,11 +21565,18 @@ input.cz-sizing-fix-size {
 
 .cz-view-tabs.t-tabs > .t-tabs-pill,
 .cz-filter-strip.is-glyph.t-tabs > .t-tabs-pill,
-.cz-fit-tabs.t-tabs > .t-tabs-pill,
 .cz-fit-units.t-tabs > .t-tabs-pill {
   top: 3px;
   bottom: 3px;
   height: auto;
+}
+
+/* Kyle 2026-08-09: the Fit tab bar became plain text with an underline, but
+   this measured white capsule still painted behind the active word — a white
+   blob with white text inside it. The underline is the only marker here now.
+   Every other tab bar keeps its capsule. */
+.cz-fit-tabs.t-tabs > .t-tabs-pill {
+  display: none;
 }
 
 .cz-segment.t-tabs > .t-tabs-pill,

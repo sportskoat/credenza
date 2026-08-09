@@ -1763,9 +1763,12 @@ function SellerChartFold({
   onEnterManual,
   onForgetChart,
 }) {
-  // Kyle 2026-08-02 item 4: seller chart shown by default (photo 7 SHOW
-  // control was the complaint that it started closed). Hide toggle remains.
-  const [open, setOpen] = useState(true);
+  // Kyle 2026-08-02 item 4 opened this by default: the complaint then was a
+  // SHOW control on a card with room to spare. 2026-08-09 the Fit card grew
+  // graded chips and bar rows, and Kyle asked twice for the whole card on one
+  // screen. The full seller chart is reference, not the answer, so it starts
+  // closed again. The header still names it and the toggle still opens it.
+  const [open, setOpen] = useState(false);
   const profile = useMemo(() => effectiveBodyProfile(bodyProfile), [bodyProfile]);
   const hasChart = !!(chart && Array.isArray(chart.rows) && chart.rows.length);
   const host = listingHostLabel(item);
@@ -2006,15 +2009,14 @@ function FitReadTrack({
   showBand = true,
   bandLeft = null,
   bandWidth = null,
-  softLeft = null,
-  softLeftWidth = null,
-  softRight = null,
-  softRightWidth = null,
   // The room fill: body to garment, in the row's own tier color (Kyle
   // 2026-08-09). Null on a row with no verdict.
   fillLeft = null,
   fillWidth = null,
   units,
+  // The soft-zone geometry (softLeft/softRight and their widths) still comes
+  // out of fitReadRows and still decides the row's colour tier. It no longer
+  // DRAWS: the flanking amber stubs were half the mud Kyle saw.
 }) {
   const bandStyle =
     bandLeft != null && bandWidth != null
@@ -2023,23 +2025,15 @@ function FitReadTrack({
   return (
     <span className="cz-fitread-track">
       <span className="cz-fitread-rail" />
-      {showBand && softLeft != null && softLeftWidth > 0 ? (
-        <span
-          className="cz-fitread-soft"
-          style={{ left: softLeft + "%", width: softLeftWidth + "%" }}
-        />
-      ) : null}
-      {showBand && softRight != null && softRightWidth > 0 ? (
-        <span
-          className="cz-fitread-soft"
-          style={{ left: softRight + "%", width: softRightWidth + "%" }}
-        />
-      ) : null}
-      {showBand && bandStyle ? (
-        <span
-          className={"cz-fitread-band" + (dashed ? " is-dashed" : "")}
-          style={bandStyle}
-        />
+      {/* 2026-08-09, Fable's verdict after Kyle said the bars "look very bad":
+          the amber soft zones and the target outline are gone from a graded
+          row. They stacked four shapes on one track and read as mud. The
+          shopper needs three facts — where the body is, where the garment
+          is, and whether that gap is good. The fill answers all three.
+          A row with NO verdict keeps the dashed band: it is the only shape
+          that row has, and it says "we are not guessing at this". */}
+      {showBand && dashed && bandStyle ? (
+        <span className="cz-fitread-band is-dashed" style={bandStyle} />
       ) : null}
       {/* The room: body to garment, tinted by the row's own tier (Kyle
           2026-08-09, "should the green bars turn amber then red as you get
@@ -2155,10 +2149,6 @@ function FitReadMeasureRows({ rows, hasChart, units, rec = null }) {
         showBand={hasChart}
         bandLeft={r.bandLeft}
         bandWidth={r.bandWidth}
-        softLeft={r.softLeft}
-        softLeftWidth={r.softLeftWidth}
-        softRight={r.softRight}
-        softRightWidth={r.softRightWidth}
         fillLeft={r.fillLeft}
         fillWidth={r.fillWidth}
         units={units}
@@ -2201,10 +2191,6 @@ function FitReadTable({
   // ("HOW THE MEDIUM SITS ON YOU") and gives every row its plain word. Null
   // keeps the old FIT READ kicker and the numbers with no words.
   rec = null,
-  // Same mockup: the source line under the bars. The host is the seller's
-  // site ("weidian.com"); "typed" means the customer entered it by hand.
-  sourceHost = "",
-  sourceVia = "",
 }) {
   const [chartOpen, setChartOpen] = useState(false);
   if (!rows.length) return null;
@@ -2212,19 +2198,6 @@ function FitReadTable({
   // whenever the customer tapped (the caller passes verdict.shown).
   const shownWord = rec && rec.size ? formatSizeToken(rec.size) || rec.size : "";
   const kicker = shownWord ? "How the " + shownWord + " sits on you" : "FIT READ";
-  // Where the numbers came from, in one line. The host is the seller's own
-  // site when we know it; a hand-typed chart says so instead of naming a site
-  // it never came from.
-  const chartSource = (() => {
-    if (!hasChart || !chart || !Array.isArray(chart.rows) || !chart.rows.length) return "";
-    const count = chart.rows.length;
-    const parts = [
-      sourceVia === "typed" ? "You typed this chart" : "The seller's chart",
-      count + " size" + (count === 1 ? "" : "s"),
-    ];
-    if (sourceHost) parts.push(sourceHost);
-    return parts.join(" · ");
-  })();
   // "Inside tolerance" counts hard failures only: an ORANGE (soft) row is
   // close enough to wear, so it still counts as inside here — same verdict
   // the old +4cm slack gave, now shown honestly by the color (K 2026-08-02).
@@ -2294,15 +2267,10 @@ function FitReadTable({
       ) : null}
       <FitReadHeads kicker={canOpenChart ? null : kicker} />
       <FitReadMeasureRows rows={rows} hasChart={hasChart} units={units} rec={rec} />
-      {hasChart ? (
-        /* 2026-08-09 (Kyle's simpler-card mockup): the legend is two short
-           sentences. The old four-sentence version explained the dashed band
-           and the amber zone before the customer had met either. */
-        <p className="cz-fitread-legend">
-          The line is your body. The bar is the room. It turns amber, then
-          red, the further the room gets from a good fit.
-        </p>
-      ) : null}
+      {/* The legend went 2026-08-09 (Fable's verdict, after Kyle: "it looks
+          very bad"). With the soft zones and the outline gone, one bar runs
+          from the body to the garment and carries one colour. A sentence
+          explaining that only added a third grey line under the rows. */}
       {canOpenChart && chartOpen ? (
         <div className="cz-fitread-detail">
           <p className="cz-fitread-detail-help">
@@ -2320,10 +2288,10 @@ function FitReadTable({
           </div>
         </div>
       ) : null}
-      {/* 2026-08-09 (Kyle's simpler-card mockup): one source line says where
-          the numbers came from — "The seller's chart · 5 sizes · weidian.com".
-          It answers "can I trust this" without a word of explanation. */}
-      {chartSource ? <p className="cz-fitread-source">{chartSource}</p> : null}
+      {/* The source line ("The seller's chart · 5 sizes · weidian.com") lived
+          here for a few hours on 2026-08-09 and printed the SAME sentence the
+          seller-chart fold right below already prints in its header. Kyle saw
+          it twice on one screen. The fold owns it. */}
       <div className="cz-fitread-foot">
         <span className="cz-fitread-footnote">{noteText || footnote}</span>
         <span className="cz-fitread-footlinks">
@@ -5305,10 +5273,6 @@ export default function DetailBody({
                       /* The bars describe the size on screen, so the heading
                          and the row words follow the tap (2026-08-09). */
                       rec={verdict.shown || verdict.rec}
-                      sourceHost={listingHostLabel(item)}
-                      sourceVia={
-                        item.sizeChartSource ? item.sizeChartSource.via || "" : ""
-                      }
                       onEditMeasures={onOpenSizes ? openProfileSizes : null}
                       onForgetChart={chartIsForgettable ? forgetChart : null}
                     />
@@ -5328,8 +5292,6 @@ export default function DetailBody({
                   verdict.shown && verdict.shown.alt ? verdict.shown.alt.size : null
                 }
                 rec={verdict.shown || verdict.rec}
-                sourceHost={listingHostLabel(item)}
-                sourceVia={item.sizeChartSource ? item.sizeChartSource.via || "" : ""}
                 onEditMeasures={wantsStickyBar ? null : onOpenSizes ? openProfileSizes : null}
                 onForgetChart={
                   wantsStickyBar ? null : chartIsForgettable ? forgetChart : null
