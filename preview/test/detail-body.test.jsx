@@ -722,7 +722,12 @@ describe("DetailBody no-measurements flow", () => {
   it("4g: chest measurement against a chart shows the precise strip with math", () => {
     const handlers = trio();
     handlers.bodyProfile = { chest: "96" };
-    const { container } = render(body(item("fit4g"), handlers));
+    // Snug chart (2026-08-08 honest header): the roomy default chart grades
+    // the chest red, and a red chest downgrades the strip to Closest
+    // available. This test pins the measured-vs-derived wording, so the
+    // chest must sit inside the band.
+    const snugNotes = "M: chest 100, length 70\nL: chest 104, length 72\nXL: chest 108, length 74";
+    const { container } = render(body(item("fit4g", { sizeNotes: snugNotes }), handlers));
 
     expect(screen.getByText("Precise fit")).toBeInTheDocument();
     const math = container.querySelector(".cz-fit4-math");
@@ -1185,7 +1190,7 @@ describe("DetailBody derived-body rail and confidence", () => {
 
   it("measure profile desktop: confidence is Verified fit", () => {
     const { container } = render(
-      body(charted("meas-conf"), {
+      body(snug("meas-conf"), {
         bodyProfile: { chest: 96, firstSizeSource: "measure" },
         onSaveBodyProfile: vi.fn(),
         titleTarget: null, // desktop editorial path shows the badge
@@ -1198,7 +1203,7 @@ describe("DetailBody derived-body rail and confidence", () => {
 
   it("brand-match profile desktop: confidence is Estimated fit, not Verified fit", () => {
     const { container } = render(
-      body(charted("bm-conf"), {
+      body(snug("bm-conf"), {
         bodyProfile: {
           chest: 99.6,
           firstSizeSource: "brand-match",
@@ -1219,7 +1224,7 @@ describe("DetailBody derived-body rail and confidence", () => {
 
   it("usual-fit profile desktop: confidence is Estimated fit, not Verified fit", () => {
     const { container } = render(
-      body(charted("uf-conf"), {
+      body(snug("uf-conf"), {
         bodyProfile: { chest: 96, firstSizeSource: "usual-fit" },
         onSaveBodyProfile: vi.fn(),
         titleTarget: null,
@@ -1229,6 +1234,43 @@ describe("DetailBody derived-body rail and confidence", () => {
     expect(badge, "editorial confidence badge").not.toBeNull();
     expect(badge.textContent).toMatch(/Estimated fit/);
     expect(badge.textContent).not.toMatch(/Verified fit/);
+  });
+
+  // Honest header (four-lane debate 2026-08-08): a red chest bar blocks the
+  // green claim. The pick stays; the words become "Closest available".
+  it("red chest bar desktop: confidence is Closest available, never Verified fit", () => {
+    const huge = item("blocked-conf", {
+      sizeNotes: "M: chest 120, length 70\nL: chest 124, length 72\nXL: chest 128, length 74",
+    });
+    const { container } = render(
+      body(huge, {
+        bodyProfile: { chest: 96, firstSizeSource: "measure" },
+        onSaveBodyProfile: vi.fn(),
+        titleTarget: null,
+      })
+    );
+    const badge = container.querySelector(".cz-fit-result-badge");
+    expect(badge, "editorial confidence badge").not.toBeNull();
+    expect(badge.textContent).toMatch(/Closest available/);
+    expect(badge.textContent).not.toMatch(/Verified fit/);
+  });
+
+  // The same debate: length never blocks. A red length bar warns on its own
+  // row but the header keeps its green claim when the chest is inside.
+  it("red length bar desktop: confidence stays Verified fit", () => {
+    const longBody = item("length-conf", {
+      sizeNotes: "M: chest 104, length 80\nL: chest 108, length 82\nXL: chest 112, length 84",
+    });
+    const { container } = render(
+      body(longBody, {
+        bodyProfile: { chest: 96, length: 55, firstSizeSource: "measure" },
+        onSaveBodyProfile: vi.fn(),
+        titleTarget: null,
+      })
+    );
+    const badge = container.querySelector(".cz-fit-result-badge");
+    expect(badge, "editorial confidence badge").not.toBeNull();
+    expect(badge.textContent).toMatch(/Verified fit/);
   });
 
   // F retraction 2026-08-04: frame 4 / mobileConfidence was chart-only.
@@ -1329,7 +1371,7 @@ describe("DetailBody derived-body rail and confidence", () => {
   // Matrix: measure keeps Precise; derived sources say Estimated + is-rough.
   it("measure profile: Fit4 badge is Precise fit", () => {
     const { container } = render(
-      body(charted("meas-fit4"), {
+      body(snug("meas-fit4"), {
         bodyProfile: { chest: 96, firstSizeSource: "measure" },
         onSaveBodyProfile: vi.fn(),
       })
@@ -1342,7 +1384,7 @@ describe("DetailBody derived-body rail and confidence", () => {
 
   it("brand-match profile: Fit4 badge is Estimated fit, not Precise fit", () => {
     const { container } = render(
-      body(charted("bm-fit4"), {
+      body(snug("bm-fit4"), {
         bodyProfile: {
           chest: 99.6,
           firstSizeSource: "brand-match",
@@ -1361,7 +1403,7 @@ describe("DetailBody derived-body rail and confidence", () => {
 
   it("usual-fit profile: Fit4 badge is Estimated fit, not Precise fit", () => {
     const { container } = render(
-      body(charted("uf-fit4"), {
+      body(snug("uf-fit4"), {
         bodyProfile: { chest: 96, firstSizeSource: "usual-fit" },
         onSaveBodyProfile: vi.fn(),
       })

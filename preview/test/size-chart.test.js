@@ -307,12 +307,14 @@ describe("recommendSize", () => {
   });
 
   it("uses wider ease for outerwear", () => {
-    // Unnamed outerwear reads as a coat, band 12.5-20cm. Body 96: M (chest
-    // 112, ease 16) and L (chest 116, ease 20) both sit inside the band, so
-    // both fit. Kyle's rule: when the size sits between two rows that both
-    // fit, the app picks the bigger one.
+    // Unnamed outerwear reads as a coat, band 12.5–25cm (widened from
+    // 12.5–20 by the four-lane debate, 2026-08-08). Body 96: all four rows
+    // score within 0.5 of the best (S 0.5, M 0.14, L 0.06, XL 0.26), so the
+    // tie rule picks the biggest in-band row — XL. Roomy outerwear is the
+    // cut, not a warning, and Kyle's standing complaint was jackets
+    // recommending too small.
     const rec = recommendSize(shirtChart, { chest: 96 }, "outerwear");
-    expect(rec.size).toBe("L");
+    expect(rec.size).toBe("XL");
   });
 
   it("sizes down when the chart says 版型偏大 (runs big)", () => {

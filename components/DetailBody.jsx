@@ -593,6 +593,10 @@ function SizingBlock({
   brandMatchSource = false,
   // Derived body (usual-fit or brand-match or future inferred sources).
   derivedBodySource = false,
+  // Honest header (four-lane debate 2026-08-08): a red chest or shoulder bar
+  // (waist/hip on bottoms) blocks every green fit claim. The pick stays; the
+  // words change to "Closest available" in amber.
+  headerBlocked = false,
 }) {
   const isManual = !!chosenSize;
   const heroSize = chosenSize || recSize || usualSize || "";
@@ -679,11 +683,15 @@ function SizingBlock({
     return type;
   })();
   // Derived body numbers must not claim "Verified fit" (F ticket 2026-08-04).
+  // A red blocker bar must not claim it either (debate 2026-08-08): the pick
+  // is the closest the seller offers, not a verified fit.
   const confidenceLabel =
     precise || (recSize && chart)
-      ? derivedBodySource || usualFitSource || brandMatchSource
-        ? "Estimated fit"
-        : "Verified fit"
+      ? headerBlocked
+        ? "Closest available"
+        : derivedBodySource || usualFitSource || brandMatchSource
+          ? "Estimated fit"
+          : "Verified fit"
       : "Your usual size";
   // Phase 1 usual-fit keeps the AI size kicker with the new provenance rail
   // (F: "AI SIZE / CHART PICK · USUAL SIZE + FIT") — not a bare "your usual".
@@ -724,7 +732,7 @@ function SizingBlock({
                 {fitPrefToggleLabel(item, fitPref)}
               </button>
             ) : null}
-            <span className="cz-fit-result-badge">
+            <span className={"cz-fit-result-badge" + (headerBlocked ? " is-blocked" : "")}>
               <span className="cz-fit-result-dot" aria-hidden="true" />
               {confidenceLabel}
             </span>
@@ -3255,7 +3263,7 @@ function FitPrefAsk({ item, fitPref, onSaveFitPref, onDone, showSkip = true, rev
   );
 }
 
-function FitConfidenceStrip({ item, verdict, bodyProfile, fitPref, units, onSharpen, onEditPref }) {
+function FitConfidenceStrip({ item, verdict, bodyProfile, fitPref, units, onSharpen, onEditPref, headerBlocked = false }) {
   // The numbers describe the size on screen, which is the tapped one whenever
   // the customer tapped. `verdict.shown` falls back to the recommendation.
   const rec = verdict.shown || verdict.rec;
@@ -3264,8 +3272,13 @@ function FitConfidenceStrip({ item, verdict, bodyProfile, fitPref, units, onShar
     const easeStr = (diff >= 0 ? "+" : "−") + formatMeasure(Math.abs(diff), units);
     // Derived body (usual-fit / brand-match) must not claim "Precise fit"
     // (F retraction 2026-08-04 — fifth surface; same wording as confidenceLabel).
+    // A red blocker bar must not claim it either (debate 2026-08-08).
     const derivedBody = isDerivedBodySource(bodyProfile);
-    const precisionBadge = derivedBody ? "Estimated fit" : "Precise fit";
+    const precisionBadge = headerBlocked
+      ? "Closest available"
+      : derivedBody
+        ? "Estimated fit"
+        : "Precise fit";
     // 5c — the preference payoff. baseWord only exists when taste actually
     // shifted the letter size; tags surface any saved axis, shift or not.
     const sizeWord = formatSizeToken(rec.size) || rec.size;
@@ -3288,7 +3301,7 @@ function FitConfidenceStrip({ item, verdict, bodyProfile, fitPref, units, onShar
       <div className="cz-fit4">
         <div className="cz-fit4-head">
           <span className="cz-fit4-kicker">Fit confidence</span>
-          <span className={"cz-fit4-badge " + (derivedBody ? "is-rough" : "is-precise")}>
+          <span className={"cz-fit4-badge " + (derivedBody || headerBlocked ? "is-rough" : "is-precise")}>
             <span className="cz-fit4-badge-dot" aria-hidden="true" />
             {precisionBadge}
           </span>
@@ -3723,6 +3736,18 @@ export default function DetailBody({
             item.title
           ),
     [verdict.chart, verdict.shown, bodyProfile, item.category, item.title]
+  );
+  // Honest header (four-lane debate 2026-08-08): a red chest or shoulder bar
+  // (waist/hip on bottoms) blocks every green fit claim on the screen — the
+  // desktop badge, the fit-confidence strip, and the phone header all read
+  // this one flag. Length and sleeve never block. The pick stays; the words
+  // change to "Closest available".
+  const HEADER_BLOCKER_KEYS =
+    item.category === "pants" || item.category === "shorts"
+      ? ["waist", "hip"]
+      : ["chest", "shoulder"];
+  const headerBlocked = fitRows.some(
+    (row) => HEADER_BLOCKER_KEYS.includes(row.key) && row.warn
   );
   // "Forget this chart" (split rail): the parse was wrong, so the stored
   // measurements go. Only offered when dropping sizeNotes actually kills the
@@ -4232,7 +4257,11 @@ export default function DetailBody({
   const mobileRecommendedWord =
     formatSizeToken(mobileRecommended) || String(mobileRecommended || "").trim();
   const mobileChosenWord = formatSizeToken(chosenSize) || chosenSize;
-  const mobileOutsideCount = fitRows.filter((row) => row.warn).length;
+  // Debate 2026-08-08: only blocker rows flip the phone header. A red length
+  // or sleeve warns on its own bar but never downgrades the verdict.
+  const mobileOutsideCount = fitRows.filter(
+    (row) => HEADER_BLOCKER_KEYS.includes(row.key) && row.warn
+  ).length;
   const mobileFitKicker = verdict.chart ? "We recommend" : "No seller chart";
   // Derived body must not claim "Precise fit" on the phone line either
   // (F retraction 2026-08-04 — frame 4 / mobileConfidence; was chart-only).
@@ -4910,6 +4939,7 @@ export default function DetailBody({
                 usualFitSource={isUsualFitSource(bodyProfile)}
                 brandMatchSource={isBrandMatchSource(bodyProfile)}
                 derivedBodySource={isDerivedBodySource(bodyProfile)}
+                headerBlocked={headerBlocked}
                 customBox={
                   <CustomSizeBox
                     className="cz-sizing-cell is-custom"
@@ -4974,6 +5004,7 @@ export default function DetailBody({
                 units={measureUnits}
                 onSharpen={() => setAskingMeasures(true)}
                 onEditPref={onSaveFitPref ? () => setAskingPref(true) : null}
+                headerBlocked={headerBlocked}
               />
             ) : null}
 

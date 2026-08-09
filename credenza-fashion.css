@@ -20750,6 +20750,14 @@ input.cz-sizing-fix-size {
     color: var(--cz-money);
     white-space: nowrap;
   }
+  /* Honest header (debate 2026-08-08): a red blocker bar turns the badge
+     amber and the words become "Closest available". Never green on a red. */
+  .cz-fit-result-badge.is-blocked {
+    color: var(--cz-warn);
+  }
+  .cz-fit-result-badge.is-blocked .cz-fit-result-dot {
+    background: var(--cz-warn);
+  }
   .cz-fit-result-dot {
     width: 6px;
     height: 6px;

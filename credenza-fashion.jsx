@@ -1480,6 +1480,9 @@ export function hasElasticWaist(...texts) {
 
 // Chest ease bands in centimetres, [low, high], from C's review table. The
 // engine aims for the middle of a band and scores the distance outside it.
+// Coat top widened 20 to 25 by the four-lane debate (2026-08-08): roomy
+// outerwear is the cut, not a warning — Kyle's 49.6in jacket on a 40in chest
+// drew red under a green header, and the screen argued with itself.
 // Decimals are deliberate — do not round these to whole centimetres.
 export const CHEST_EASE_BANDS = {
   compression: [-2.5, 2.5],
@@ -1489,7 +1492,11 @@ export const CHEST_EASE_BANDS = {
   knitOver: [15, 25],
   woven: [5, 15],
   blazer: [7.5, 12.5],
-  coat: [12.5, 20],
+  coat: [12.5, 25],
+  // The oversized-taste coat band sits above the regular coat band. Without
+  // it, asking for an oversized coat would be a no-op: the widened regular
+  // band already covers the old knitOver top of 25.
+  coatOver: [15, 30],
 };
 
 // Which band a garment reads against, once its type, cut and the customer's
@@ -1505,7 +1512,7 @@ export function chestEaseBand(kind, cut, looseness) {
     return CHEST_EASE_BANDS.blazer;
   }
   if (kind === "coat") {
-    if (looseness === "oversized" || looseness === "baggy") return CHEST_EASE_BANDS.knitOver;
+    if (looseness === "oversized" || looseness === "baggy") return CHEST_EASE_BANDS.coatOver;
     return CHEST_EASE_BANDS.coat;
   }
   // C: a woven shirt is one broad band "adjusted by the declared fit".

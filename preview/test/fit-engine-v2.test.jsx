@@ -103,13 +103,15 @@ describe("naming the cut", () => {
 describe("the room each garment gets", () => {
   it("keeps C's bands, decimals and all", () => {
     expect(CHEST_EASE_BANDS.blazer).toEqual([7.5, 12.5]);
-    expect(CHEST_EASE_BANDS.coat).toEqual([12.5, 20]);
+    // Debate 2026-08-08: the top widened 20 to 25. Roomy outerwear is the
+    // cut, not a warning — Kyle's +24.4cm jacket drew red under 20.
+    expect(CHEST_EASE_BANDS.coat).toEqual([12.5, 25]);
     expect(CHEST_EASE_BANDS.compression).toEqual([-2.5, 2.5]);
   });
 
   it("separates a tailored jacket from a coat", () => {
     expect(chestEaseBand("blazer", "set-in", null)).toEqual([7.5, 12.5]);
-    expect(chestEaseBand("coat", "set-in", null)).toEqual([12.5, 20]);
+    expect(chestEaseBand("coat", "set-in", null)).toEqual([12.5, 25]);
   });
 
   it("stands the seller's declared fit in when the customer saved no taste", () => {
@@ -154,10 +156,10 @@ describe("a blazer and a coat are not the same size", () => {
   });
 
   it("sizes a coat to layer over a tee and a jumper", () => {
-    // Band 12.5–20cm → wants 112.5–120cm → the L (118).
+    // Band 12.5–25cm → wants 112.5–125cm → the L (118).
     const rec = recommendSize(chart, body, "outerwear", null, null, "Down puffer jacket");
     expect(rec.garmentKind).toBe("coat");
-    expect(rec.easeBand).toEqual([12.5, 20]);
+    expect(rec.easeBand).toEqual([12.5, 25]);
     expect(rec.size).toBe("L");
   });
 
@@ -334,16 +336,19 @@ describe("oversized widens the band on a compression top, a blazer, and a coat",
     expect(chestEaseBand("blazer", null, null)).toEqual(CHEST_EASE_BANDS.blazer);
   });
 
-  it("gives a coat the oversized knit band when the customer likes loose", () => {
-    expect(chestEaseBand("coat", null, "oversized")).toEqual(CHEST_EASE_BANDS.knitOver);
+  it("gives a coat the oversized coat band when the customer likes loose", () => {
+    // Debate 2026-08-08 widened the regular coat band to 12.5–25, so the
+    // oversized taste gets its own band above it. Otherwise the taste would
+    // be a no-op on coats.
+    expect(chestEaseBand("coat", null, "oversized")).toEqual(CHEST_EASE_BANDS.coatOver);
     expect(chestEaseBand("coat", null, null)).toEqual(CHEST_EASE_BANDS.coat);
   });
 
   it("moves a coat up a size in practice when the customer likes oversized", () => {
-    // Chest 100. Normal coat band 12.5–20cm: the M (113) sits inside, the L
-    // (123) misses by 3cm, so the M wins. Oversized band 15–25cm: the M
+    // Chest 100. Regular coat band 12.5–25cm: the M (113) sits inside, the L
+    // (127) misses by 2cm, so the M wins. Oversized band 15–30cm: the M
     // misses by 2cm, the L sits inside, so the L wins.
-    const chart = chartOf("M: chest 113, length 72\nL: chest 123, length 74");
+    const chart = chartOf("M: chest 113, length 72\nL: chest 127, length 74");
     const body = { chest: 100 };
     const plain = recommendSize(chart, body, "outerwear", null, null, "Wool Overcoat");
     expect(plain.garmentKind).toBe("coat");
