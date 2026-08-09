@@ -2270,6 +2270,91 @@ export function fitReadRows(chart, rec, profile, category, title = null) {
   return rows;
 }
 
+// ── Simpler fit card (Kyle's mockup, 2026-08-09) ────────────────────────────
+//
+// The rebuilt Fit card grades EVERY size on the chart, not just the pick, so
+// each chip can name its own fit. The band is the same one the pick used; the
+// soft delta is the same one the bars use. A chip word reads the raw ease
+// (garment minus body, no run shift — the chip says what the garment IS)
+// against that band:
+//
+//   below the band                        TIGHT
+//   more than one soft delta below        TOO SMALL
+//   inside the band                       FITS (the UI says YOUR FIT / ALSO FITS)
+//   above, within one soft delta          LOOSE
+//   above, within two soft deltas         BIG
+//   beyond                                TOO BIG
+//
+// Bottoms have no band: the read falls back to the waist/hip target from
+// FIT_READ_EASE, the same target the bar rows grade against.
+export function sizeCellReads(chart, rec, profile) {
+  if (!chart || !Array.isArray(chart.rows) || !rec || !rec.primaryKey) return [];
+  const p = migrateSleeveMeasurements(profile) || {};
+  const key = rec.primaryKey;
+  const body = p[key] != null && isFinite(Number(p[key])) ? Number(p[key]) : null;
+  if (body == null) return [];
+  const band = Array.isArray(rec.easeBand) ? rec.easeBand : null;
+  const target = FIT_READ_EASE[key] || null;
+  const lo = band ? band[0] : target ? target.ideal - target.span : null;
+  const hi = band ? band[1] : target ? target.ideal + target.span : null;
+  if (lo == null || hi == null) return [];
+  const softDelta = fitReadSoftDelta(key);
+  const pick = rec.size != null ? String(rec.size).toUpperCase() : null;
+  return chart.rows
+    .filter((r) => r && r.size && r[key] != null && isFinite(Number(r[key])))
+    .map((r) => {
+      const ease = Number(r[key]) - body;
+      let word;
+      if (ease < lo) word = lo - ease > softDelta ? "TOO SMALL" : "TIGHT";
+      else if (ease <= hi) word = "FITS";
+      else if (ease - hi <= softDelta) word = "LOOSE";
+      else if (ease - hi <= softDelta * 2) word = "BIG";
+      else word = "TOO BIG";
+      return {
+        size: r.size,
+        row: r,
+        ease,
+        word,
+        isPick: pick != null && String(r.size).toUpperCase() === pick,
+      };
+    });
+}
+
+// One plain word per bar row. The mockup's rule: a row inside its band gets a
+// cut-flavored word (an oversized tee's chest reads "oversized"), a row in the
+// soft zone owns up to it ("a touch loose"), and a row past the zone says so
+// ("too loose"). Ungraded rows stay silent — the row's note already explains.
+// Bands match by REFERENCE: chestEaseBand hands out the shared
+// CHEST_EASE_BANDS arrays, so the rec carries the same object.
+const ROW_WORD_ROOMY_BANDS = new Set([
+  CHEST_EASE_BANDS.knitRelaxed,
+  CHEST_EASE_BANDS.knitOver,
+  CHEST_EASE_BANDS.wovenRoomy,
+  CHEST_EASE_BANDS.coatOver,
+]);
+const ROW_WORD_SLIM_BANDS = new Set([
+  CHEST_EASE_BANDS.compression,
+  CHEST_EASE_BANDS.knitSlim,
+  CHEST_EASE_BANDS.wovenSlim,
+]);
+
+export function fitRowWord(row, rec) {
+  if (!row || row.ease == null || row.dashed) return null;
+  const band = rec && Array.isArray(rec.easeBand) ? rec.easeBand : null;
+  const target = FIT_READ_EASE[row.key] || null;
+  const lo = row.key === "chest" && band ? band[0] : target ? target.ideal - target.span : null;
+  const hi = row.key === "chest" && band ? band[1] : target ? target.ideal + target.span : null;
+  if (lo == null || hi == null) return null;
+  const roomy = row.ease > hi;
+  if (row.warn) return roomy ? "too loose" : "too tight";
+  if (row.soft) return roomy ? "a touch loose" : "a touch tight";
+  if (row.key === "chest" && band) {
+    if (ROW_WORD_ROOMY_BANDS.has(band)) return "oversized";
+    if (ROW_WORD_SLIM_BANDS.has(band)) return "slim";
+  }
+  return "fine";
+}
+
 // Per-category Length + Looseness axes (design 5a/5b). Unset axis = no skew.
 // Only garment categories that go through recommendSize.
 export const FIT_PREF_AXES = {
