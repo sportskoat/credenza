@@ -377,7 +377,9 @@ describe("DesktopDetailPanel (Fix B)", () => {
     const start = css.indexOf("/* ── Card back v2 (Phase 1: shell + Fit tab) ── */");
     expect(start).toBeGreaterThan(-1);
     // Token block is long — read far enough for width + body-grid ratio.
-    const block = css.slice(start, start + 5200);
+    // 2026-08-09: read to the end of the block instead of a fixed byte count.
+    // Every new token in the block pushed the ratio rule past a fixed slice.
+    const block = css.slice(start);
     // max-width must be present so min-content children cannot blow past 1360.
     expect(block).toMatch(/max-width:\s*min\(92vw,\s*1360px\)/);
     expect(block).toMatch(/width:\s*min\(92vw,\s*1360px\)/);

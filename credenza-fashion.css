@@ -16197,9 +16197,9 @@ input.cz-sizing-cell.is-custom:focus-visible {
 
 .cz-sizing-cell-k {
   font-family: var(--cz-mono);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--cz-faint);
 }
@@ -16226,13 +16226,18 @@ input.cz-sizing-cell.is-custom:focus-visible {
   display: none;
 }
 
+/* 2026-08-09 (Kyle: "it's too gray, you can't really even see what the fit
+   is"). Three review lanes returned the same type scale: the verdict word is
+   the loudest thing on the chip, the size name steps back, the ease lines sit
+   quietly below. 12px beats the 11px name; nothing here is 8px any more. */
 .cz-sizing-cell-word {
   font-family: var(--cz-mono);
-  font-size: 8px;
+  font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  line-height: 14px;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--cz-sub);
+  color: var(--cz-ink);
 }
 
 .cz-sizing-cell-word.is-fit {
@@ -16252,12 +16257,12 @@ input.cz-sizing-cell.is-custom:focus-visible {
    ruling as the old tag lane. */
 .cz-sizing-cell-ease {
   font-family: var(--cz-mono);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
-  line-height: 12px;
-  min-height: 12px;
-  color: var(--cz-faint);
+  line-height: 13px;
+  min-height: 13px;
+  color: var(--cz-sub);
   white-space: nowrap;
 }
 
@@ -16524,11 +16529,15 @@ input.cz-sizing-cell.is-custom:focus-visible {
   border-top: 1px solid var(--cz-hair);
 }
 
+/* 2026-08-09 (Kyle: "where it says waist, hip, and length... they're out in
+   kind of empty space"). The name used to sit hard left and the numbers hard
+   right, with a gap between them that grew with the panel. Now the row reads
+   as one left-aligned sentence: "Waist  garment 84 · you 82 · +2 room · fine". */
 .cz-fitread-rowhead {
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
+  justify-content: flex-start;
+  gap: 8px;
   /* Narrow panels: the number line wraps under the name instead of
      clipping at the panel edge. */
   flex-wrap: wrap;
@@ -16536,12 +16545,12 @@ input.cz-sizing-cell.is-custom:focus-visible {
 
 .cz-fitread-nums {
   font-family: var(--cz-mono);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
-  text-align: right;
+  text-align: left;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  color: var(--cz-faint);
+  color: var(--cz-sub);
 }
 
 .cz-fitread-nums b {
@@ -16574,8 +16583,8 @@ input.cz-sizing-cell.is-custom:focus-visible {
    row — "oversized", "a touch tight", "fine". It carries the same tier color
    as the room number beside it, so the words and the colors never disagree. */
 .cz-fitread-word {
-  font-weight: 500;
-  color: var(--cz-sub);
+  font-weight: 600;
+  color: var(--cz-ink);
 }
 
 .cz-fitread-word.is-warn {
@@ -16672,10 +16681,12 @@ input.cz-sizing-cell.is-custom:focus-visible {
   color: var(--cz-ink);
 }
 
+/* Same size as the numbers beside it (2026-08-09). A label smaller than its
+   own data reads as a caption, and the row stopped looking like one line. */
 .cz-fitread-name {
   font-family: var(--cz-mono);
-  font-size: 11px;
-  font-weight: 500;
+  font-size: 12px;
+  font-weight: 600;
   letter-spacing: 0.02em;
   color: var(--cz-ink);
 }
@@ -20006,6 +20017,10 @@ input.cz-sizing-fix-size {
     --cz-faint: #8b8b93;
     --cz-money: #4ade80;
     --cz-money-on-white: #137a3a;
+    /* The panel is near-black whatever the theme, so warning TEXT must ride
+       the light gold. The Daylight #8a6714 vanishes here. Matches Blackout. */
+    --cz-warn: #d9a83c;
+    --cz-warn-ink: #e8bf63;
     /* Seller name under the title (and any other on-panel links). Matches
        Blackout --cz-link so the hyperlink reads on near-black. */
     --cz-link: #7fb2ff;
@@ -20965,19 +20980,21 @@ input.cz-sizing-fix-size {
   .cz-dpanel .cz-sizing-cell:active {
     transform: translateY(1px);
   }
+  /* 2026-08-09: the picked card is the panel's filled surface, so it takes
+     the panel's own fill/text pair. Raw hex here fought the tokens. */
   .cz-dpanel .cz-sizing-cell.is-pick {
-    background: #ffffff;
-    border-color: #ffffff;
-    color: #050506;
+    background: var(--cz-action-fill);
+    border-color: var(--cz-action-fill);
+    color: var(--cz-action-text);
     /* Selected card is solid white — drop the rec glow so it does not
        paint a green box on top of the white fill. */
     box-shadow: none;
     animation: none;
   }
   .cz-dpanel .cz-sizing-cell.is-pick-manual {
-    background: #ffffff;
-    border-color: #ffffff;
-    color: #050506;
+    background: var(--cz-action-fill);
+    border-color: var(--cz-action-fill);
+    color: var(--cz-action-text);
     box-shadow: none;
     animation: none;
   }
@@ -20989,23 +21006,25 @@ input.cz-sizing-fix-size {
     animation: none;
     filter: none;
   }
+  /* 2026-08-09: the name follows the global 11px so the verdict word above
+     it stays the loudest thing on the card. */
   .cz-dpanel .cz-sizing-cell-k {
     font-family: var(--cz-mono);
-    font-size: 9.5px;
+    font-size: 11px;
     font-weight: 700;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
   }
   /* White card + global `.is-pick .cz-sizing-cell-k` white text = invisible
      name. Keep the size label dark on every selected card. */
   .cz-dpanel .cz-sizing-cell.is-pick .cz-sizing-cell-k,
   .cz-dpanel .cz-sizing-cell.is-pick-manual .cz-sizing-cell-k {
-    color: #050506;
+    color: var(--cz-action-text);
   }
   /* Selected + recommended: same white card — name must stay dark (matches
      value). Beats any later/rec green-on-dark rule when both classes apply. */
   .cz-dpanel .cz-sizing-cell.is-pick.is-rec .cz-sizing-cell-k {
-    color: #050506;
+    color: var(--cz-action-text);
   }
   .cz-dpanel .cz-sizing-cell-v {
     font-family: var(--cz-mono);
@@ -21014,7 +21033,7 @@ input.cz-sizing-fix-size {
     color: inherit;
   }
   .cz-dpanel .cz-sizing-cell.is-pick .cz-sizing-cell-v {
-    color: #050506;
+    color: var(--cz-action-text);
   }
   /* Kyle 2026-08-09: "now you cant see the recommendations". The picked card
      is solid white here, and the global rules paint the verdict word and the
@@ -21022,14 +21041,14 @@ input.cz-sizing-fix-size {
      dark on this panel, so the picked card reads like every other card. */
   .cz-dpanel .cz-sizing-cell.is-pick .cz-sizing-cell-word,
   .cz-dpanel .cz-sizing-cell.is-pick-manual .cz-sizing-cell-word {
-    color: #050506;
+    color: var(--cz-action-text);
   }
   .cz-dpanel .cz-sizing-cell.is-pick .cz-sizing-cell-word.is-fit {
     color: var(--cz-money-on-white);
   }
   .cz-dpanel .cz-sizing-cell.is-pick .cz-sizing-cell-ease,
   .cz-dpanel .cz-sizing-cell.is-pick-manual .cz-sizing-cell-ease {
-    color: rgba(5, 5, 6, 0.62);
+    color: color-mix(in srgb, var(--cz-action-text) 66%, transparent);
   }
   .cz-dpanel .cz-sizing-cell-tag {
     display: inline-flex;
@@ -21205,20 +21224,24 @@ input.cz-sizing-fix-size {
   .cz-dpanel .cz-fitread-garment-tag {
     font-size: 10px;
   }
+  /* 2026-08-09 (Kyle: "it's too gray"). The row label is the same size and
+     the same ink as the numbers beside it, so the line reads as one sentence
+     instead of a grey caption with data floating off to the right. */
   .cz-dpanel .cz-fitread-name {
-    color: var(--cz-sub);
-    font-size: 12.5px;
+    color: var(--cz-ink);
+    font-size: 12px;
   }
   .cz-dpanel .cz-fitread-nums {
     font-size: 12px;
-    color: var(--cz-faint);
+    color: var(--cz-sub);
   }
   .cz-dpanel .cz-fitread-nums b {
-    color: #ffffff;
+    color: var(--cz-ink);
   }
   .cz-dpanel .cz-fitread-diff { color: var(--cz-money); font-weight: 700; }
   .cz-dpanel .cz-fitread-diff.is-warn { color: var(--cz-error-text); }
-  .cz-dpanel .cz-fitread-diff.is-soft { color: var(--cz-warn); }
+  /* Text-safe amber: the plain gold measures under the 4.5:1 floor. */
+  .cz-dpanel .cz-fitread-diff.is-soft { color: var(--cz-warn-ink); }
   .cz-dpanel .cz-fitread-unknown,
   .cz-dpanel .cz-fitread-note {
     color: var(--cz-faint);

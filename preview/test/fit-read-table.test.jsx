@@ -1044,13 +1044,50 @@ describe("typing a chart by hand", () => {
 // ("garment X · you Y · +Z room") above a taller track. The legibility rule
 // survives: mono numbers, nowrap, tabular figures, no font shrink.
 describe("fit-read number legibility (2026-08-08 redesign)", () => {
-  it("keeps mono numbers nowrap + tabular at 11px (no font shrink)", () => {
+  // 2026-08-09 (Kyle: "it's too gray, you can't really even see what the fit
+  // is"). The numbers went 11px → 12px and the label beside them matches, so
+  // the row reads as one sentence. The legibility rule is unchanged.
+  it("keeps mono numbers nowrap + tabular at 12px (no font shrink)", () => {
     const block = FIT_CSS.match(/\.cz-fitread-nums\s*\{[^}]+\}/);
     expect(block, "row-head number rule missing").toBeTruthy();
     expect(block[0]).toContain("font-family: var(--cz-mono)");
-    expect(block[0]).toContain("font-size: 11px");
+    expect(block[0]).toContain("font-size: 12px");
     expect(block[0]).toContain("font-variant-numeric: tabular-nums");
     expect(block[0]).toContain("white-space: nowrap");
+  });
+
+  // Kyle 2026-08-09: "where it says waist, hip, and length... they're out in
+  // kind of empty space." The label sat hard left and the numbers hard right,
+  // and the gap between them grew with the panel.
+  it("packs the row label against its own numbers, left-aligned", () => {
+    const head = FIT_CSS.match(/\.cz-fitread-rowhead\s*\{[^}]+\}/);
+    expect(head, "row-head rule missing").toBeTruthy();
+    expect(head[0]).not.toContain("space-between");
+    expect(head[0]).toContain("justify-content: flex-start");
+    const nums = FIT_CSS.match(/\.cz-fitread-nums\s*\{[^}]+\}/);
+    expect(nums[0]).toContain("text-align: left");
+    // The label is the same size as the numbers beside it. A smaller label
+    // reads as a caption and breaks the one-line effect.
+    const name = FIT_CSS.match(/\n\.cz-fitread-name\s*\{[^}]+\}/);
+    expect(name, "row name rule missing").toBeTruthy();
+    expect(name[0]).toContain("font-size: 12px");
+  });
+
+  // Kyle 2026-08-09: "the fonts and the sizes for each suggestion... it's too
+  // gray. You can't really even see what the fit is." Three review lanes
+  // returned the same scale: the verdict word is the loudest thing on a chip.
+  it("makes the chip verdict word louder than the size name", () => {
+    const word = FIT_CSS.match(/\n\.cz-sizing-cell-word\s*\{[^}]+\}/);
+    expect(word, "chip word rule missing").toBeTruthy();
+    expect(word[0]).toContain("font-size: 12px");
+    expect(word[0]).toContain("font-weight: 700");
+    // Default ink, not the old gray — the color tokens still carry the tier.
+    expect(word[0]).toContain("color: var(--cz-ink)");
+    const name = FIT_CSS.match(/\n\.cz-sizing-cell-k\s*\{[^}]+\}/);
+    expect(name[0]).toContain("font-size: 11px");
+    const ease = FIT_CSS.match(/\n\.cz-sizing-cell-ease\s*\{[^}]+\}/);
+    expect(ease[0]).toContain("font-size: 10px");
+    expect(ease[0]).toContain("color: var(--cz-sub)");
   });
 
   // 2026-08-09 phone pass: both size labels ride in the markup, and exactly
@@ -1091,12 +1128,15 @@ describe("fit-read number legibility (2026-08-08 redesign)", () => {
       /\.cz-dpanel \.cz-sizing-cell\.is-pick \.cz-sizing-cell-word,[^{]+\{[^}]+\}/
     );
     expect(word, "panel picked-card word rule missing").toBeTruthy();
-    expect(word[0]).toContain("#050506");
+    // 2026-08-09: the picked card is the panel's filled surface, so it takes
+    // the panel's own fill/text pair instead of raw hex.
+    expect(word[0]).toContain("var(--cz-action-text)");
+    expect(word[0]).not.toContain("#050506");
     const ease = FIT_CSS.match(
       /\.cz-dpanel \.cz-sizing-cell\.is-pick \.cz-sizing-cell-ease,[^{]+\{[^}]+\}/
     );
     expect(ease, "panel picked-card ease rule missing").toBeTruthy();
-    expect(ease[0]).toContain("rgba(5, 5, 6");
+    expect(ease[0]).toContain("var(--cz-action-text)");
     // The recommendation keeps its green, in the on-white value.
     expect(FIT_CSS).toMatch(
       /\.cz-dpanel \.cz-sizing-cell\.is-pick \.cz-sizing-cell-word\.is-fit\s*\{[^}]*var\(--cz-money-on-white\)/
