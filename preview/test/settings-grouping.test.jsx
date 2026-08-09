@@ -125,9 +125,63 @@ describe("Sizes and measurements redesign (settings page)", () => {
     const labels = [...container.querySelectorAll(".cz-sizes-group-label")].map((n) =>
       n.textContent.trim()
     );
-    expect(labels).toEqual(["TOPS", "BOTTOMS"]);
+    // Loved Jacket (debate 2026-08-08, stage 5): a third card, no diagram.
+    expect(labels).toEqual(["TOPS", "BOTTOMS", "LOVED JACKET"]);
     expect(container.querySelectorAll(".cz-sizes-diagram")).toHaveLength(2);
     expect(container.querySelectorAll(".cz-sizes-tape")).toHaveLength(9);
+  });
+
+  it("tapes the loved jacket and saves it with the profile", async () => {
+    const user = (await import("@testing-library/user-event")).default.setup();
+    const onSave = vi.fn();
+    const { container } = render(
+      <BodyProfileSheet
+        value={{ chest: 100 }}
+        units="cm"
+        onSave={onSave}
+        onChangeUnits={noop}
+        onClose={noop}
+        embedded
+      />
+    );
+    await user.type(within(container).getByLabelText("Which jacket"), "Carhartt Detroit · M");
+    await user.type(within(container).getByLabelText("Loved jacket chest, flat"), "56.5");
+    await waitFor(
+      () => {
+        expect(onSave).toHaveBeenCalled();
+        const saved = onSave.mock.calls[onSave.mock.calls.length - 1][0];
+        expect(saved.lovedJacket).toEqual({ name: "Carhartt Detroit · M", chest: 56.5 });
+        expect(saved.chest).toBe(100);
+      },
+      { timeout: 1500 }
+    );
+  });
+
+  it("drops the loved jacket when every box is cleared", async () => {
+    const user = (await import("@testing-library/user-event")).default.setup();
+    const onSave = vi.fn();
+    const { container } = render(
+      <BodyProfileSheet
+        value={{ chest: 100, lovedJacket: { chest: 56.5 } }}
+        units="cm"
+        onSave={onSave}
+        onChangeUnits={noop}
+        onClose={noop}
+        embedded
+      />
+    );
+    // The saved number pre-fills its box.
+    expect(within(container).getByLabelText("Loved jacket chest, flat")).toHaveValue("56.5");
+    await user.clear(within(container).getByLabelText("Loved jacket chest, flat"));
+    await waitFor(
+      () => {
+        expect(onSave).toHaveBeenCalled();
+        const saved = onSave.mock.calls[onSave.mock.calls.length - 1][0];
+        expect(saved.lovedJacket).toBeUndefined();
+        expect(saved.chest).toBe(100);
+      },
+      { timeout: 1500 }
+    );
   });
 
   // Kyle 2026-08-04: garment mode is parked. Body labels are the only set.

@@ -8701,6 +8701,19 @@ body:has(.cz-app[data-fashion="true"])::-webkit-scrollbar {
   align-items: flex-start;
 }
 
+/* Loved Jacket (debate 2026-08-08, stage 5): no diagram column, so the body
+   is one column of copy and fields. The card gap above it matches the two
+   measurement groups. */
+.cz-sizes-loved {
+  margin-top: 13px;
+}
+
+.cz-sizes-loved-body {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+
 .cz-sizes-diagram-col {
   flex: none;
   width: 150px;

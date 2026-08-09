@@ -295,6 +295,73 @@ describe("the shoulder is a score, not a veto", () => {
   });
 });
 
+describe("a taped loved jacket grades coats and blazers (debate stage 5)", () => {
+  // The loved jacket's chest is taped flat, armpit to armpit, so the engine
+  // doubles it against the chart's full chest. 56.5cm flat → 113cm full.
+  it("picks the size that matches the loved jacket, not the band favourite", () => {
+    const chart = chartOf("M: chest 113, length 72\nL: chest 124, length 74");
+    const body = { chest: 100 };
+    // No loved jacket: both rows sit inside the coat band (12.5–25), the tie
+    // goes to the bigger row, so the L wins.
+    expect(recommendSize(chart, body, "outerwear", null, null, "Wool overcoat").size).toBe("L");
+    // Loved jacket taped at 113cm full: the M matches it exactly.
+    const loved = recommendSize(
+      chart,
+      { chest: 100, lovedJacket: { chest: 56.5 } },
+      "outerwear",
+      null,
+      null,
+      "Wool overcoat"
+    );
+    expect(loved.size).toBe("M");
+    expect(loved.lovedJacket).toBe(true);
+  });
+
+  it("lets the loved jacket's shoulder break a chest tie", () => {
+    // Loved chest 113cm full sits exactly between the two rows (111 and 115),
+    // so the chest alone ties and the bigger row would win. The loved
+    // shoulder (48) matches the M's seam, and a jacket shoulder costs 1/cm.
+    const chart = chartOf("M: chest 111, shoulder 48, length 72\nL: chest 115, shoulder 52, length 74");
+    const args = ["outerwear", null, null, "Wool overcoat"];
+    expect(
+      recommendSize(chart, { chest: 100, lovedJacket: { chest: 56.5 } }, ...args).size
+    ).toBe("L");
+    expect(
+      recommendSize(chart, { chest: 100, lovedJacket: { chest: 56.5, shoulder: 48 } }, ...args).size
+    ).toBe("M");
+  });
+
+  it("never grades a shirt against the loved jacket", () => {
+    // The reference is for coats and blazers only. A tee still reads its own
+    // band against the body, loved jacket or no loved jacket.
+    const chart = chartOf("M: chest 108, length 70\nL: chest 112, length 72");
+    const rec = recommendSize(
+      chart,
+      { chest: 100, lovedJacket: { chest: 56.5 } },
+      "shirt",
+      null,
+      null,
+      "Cotton tee"
+    );
+    expect(rec.garmentKind).toBe("knit");
+    expect(rec.lovedJacket).toBeNull();
+    expect(rec.size).toBe("M");
+  });
+
+  it("says the pick leaned on the loved jacket", () => {
+    const chart = chartOf("M: chest 113, length 72\nL: chest 124, length 74");
+    const rec = recommendSize(
+      chart,
+      { chest: 100, lovedJacket: { chest: 56.5 } },
+      "outerwear",
+      null,
+      null,
+      "Wool overcoat"
+    );
+    expect(garmentReasonLine(rec)).toContain("the jacket you love");
+  });
+});
+
 describe("shorts leg length", () => {
   // Kyle 2026-07-30: "the values should be the values of the seller charts."
   // The saved Shorts length is now waistband to hem, the same as the chart's

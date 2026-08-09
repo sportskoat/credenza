@@ -16,6 +16,18 @@ const TOPS = ["chest", "shoulder", "shortSleeve", "longSleeve", "length"];
 const BOT = ["waist", "hip", "pantsLength", "shortsLength"];
 const ALL = TOPS.concat(BOT);
 
+// Loved Jacket (four-lane debate 2026-08-08, stage 5): one jacket the
+// customer loves, taped once. Coats and blazers grade against these numbers
+// instead of the size-table bands. The chest is a FLAT armpit-to-armpit
+// tape — the engine doubles it against the chart's full chest.
+const LOVED = ["chest", "shoulder", "longSleeve", "length"];
+const LOVED_LABELS = {
+  chest: "Chest, flat",
+  shoulder: "Shoulder",
+  longSleeve: "Sleeve",
+  length: "Length",
+};
+
 const BODY_KEYS = [
   "height",
   "weight",
@@ -228,7 +240,7 @@ function TapeLines({ keys, activeKey, labels, onSelect }) {
   );
 }
 
-function buildPayload(bodyDraft, garmentDraft, usual, garmentTop, garmentBottom, mode, units) {
+function buildPayload(bodyDraft, garmentDraft, usual, garmentTop, garmentBottom, mode, units, lovedDraft) {
   const out = {};
   for (const key of BODY_KEYS) {
     const kind = key === "weight" ? "weight" : "length";
@@ -249,6 +261,18 @@ function buildPayload(bodyDraft, garmentDraft, usual, garmentTop, garmentBottom,
   const gb = String(garmentBottom || "").trim();
   if (gt) out.garmentTop = gt;
   if (gb) out.garmentBottom = gb;
+  // Loved Jacket: keep the block only while one number or a name is taped.
+  // All four boxes cleared removes it, and coats grade the bands again.
+  if (lovedDraft) {
+    const lOut = {};
+    for (const key of LOVED) {
+      const nVal = measureToStorage(lovedDraft[key], units, "length");
+      if (nVal != null) lOut[key] = nVal;
+    }
+    const lName = String(lovedDraft.name || "").trim();
+    if (lName) lOut.name = lName;
+    if (Object.keys(lOut).length) out.lovedJacket = lOut;
+  }
   out.measureMode = mode;
   return out;
 }
@@ -281,6 +305,12 @@ export default function BodyProfileSheet({
   const [garmentDraft, setGarmentDraft] = useState(() =>
     draftFromStorage(value && value.garment, units, "garment")
   );
+  const [lovedDraft, setLovedDraft] = useState(() => {
+    const src = value && value.lovedJacket ? value.lovedJacket : {};
+    const d = { name: src.name || "" };
+    for (const k of LOVED) d[k] = measureFromStorage(src[k], units, "length");
+    return d;
+  });
   const [usual, setUsual] = useState(() => usualFromValue(value));
   const [garmentTop, setGarmentTop] = useState(() => (value && value.garmentTop) || "");
   const [garmentBottom, setGarmentBottom] = useState(() => (value && value.garmentBottom) || "");
@@ -306,7 +336,8 @@ export default function BodyProfileSheet({
       next.garmentTop,
       next.garmentBottom,
       next.mode,
-      next.units
+      next.units,
+      next.lovedDraft
     );
     const hasAnything =
       Object.keys(payload).some((k) => k !== "measureMode") ||
@@ -329,6 +360,7 @@ export default function BodyProfileSheet({
         garmentBottom: patch.garmentBottom ?? garmentBottom,
         mode: patch.mode ?? mode,
         units: patch.units ?? units,
+        lovedDraft: patch.lovedDraft ?? lovedDraft,
       });
     }, 280);
   };
@@ -361,6 +393,15 @@ export default function BodyProfileSheet({
     setBodyDraft((d) => {
       const next = { ...d, [key]: v };
       scheduleSave({ bodyDraft: next });
+      return next;
+    });
+  };
+
+  const setLoved = (key, raw) => {
+    const v = key === "name" ? String(raw) : String(raw).replace(/[^0-9.]/g, "");
+    setLovedDraft((d) => {
+      const next = { ...d, [key]: v };
+      scheduleSave({ lovedDraft: next });
       return next;
     });
   };
@@ -416,14 +457,20 @@ export default function BodyProfileSheet({
     };
     const nextBody = convert(bodyDraft, (k) => (k === "weight" ? "weight" : "length"));
     const nextGarment = convert(garmentDraft, () => "length");
+    const nextLoved = { ...lovedDraft };
+    for (const key of LOVED) {
+      const stored = measureToStorage(nextLoved[key], units, "length");
+      nextLoved[key] = stored == null ? "" : measureFromStorage(stored, next, "length");
+    }
     setBodyDraft(nextBody);
     setGarmentDraft(nextGarment);
+    setLovedDraft(nextLoved);
     onChangeUnits(next);
-    scheduleSave({ bodyDraft: nextBody, garmentDraft: nextGarment, units: next });
+    scheduleSave({ bodyDraft: nextBody, garmentDraft: nextGarment, units: next, lovedDraft: nextLoved });
   };
 
   const saveManual = () => {
-    persist({ bodyDraft, garmentDraft, usual, garmentTop, garmentBottom, mode, units });
+    persist({ bodyDraft, garmentDraft, usual, garmentTop, garmentBottom, mode, units, lovedDraft });
     if (!embedded) onClose();
   };
 
@@ -662,6 +709,61 @@ export default function BodyProfileSheet({
 
       <div className="cz-sizes-groups">{groupCard("tops")}
         {groupCard("bot")}
+      </div>
+
+      {/* Loved Jacket (debate 2026-08-08, stage 5): tape one jacket that fits
+          exactly right. Coats and blazers then grade against its numbers.
+          No diagram — the hint line names each tape position in words. */}
+      <div className="cz-sizes-group-card cz-sizes-loved">
+        <div className="cz-sizes-group-head">
+          <span className="cz-sizes-group-label">LOVED JACKET</span>
+          <span className="cz-sizes-group-count">OPTIONAL</span>
+        </div>
+        <div className="cz-sizes-loved-body">
+          <p className="cz-sizes-mode-help">
+            Own a coat or blazer that fits exactly right? Tape it once, laid flat the way
+            sellers do. Chest is armpit seam to armpit seam. Shoulder is seam to seam across
+            the back. Sleeve is shoulder seam to the cuff. Length is the collar down to the
+            hem. Coats and blazers then grade against these numbers.
+          </p>
+          <label className="cz-sizes-which">
+            <span className="cz-sizes-which-label">WHICH JACKET</span>
+            <input
+              className="cz-sizes-which-input"
+              type="text"
+              value={lovedDraft.name}
+              onChange={(e) => setLoved("name", e.target.value)}
+              placeholder="Carhartt Detroit · M"
+              autoComplete="off"
+              aria-label="Which jacket"
+            />
+          </label>
+          <div className="cz-sizes-field-list">
+            {LOVED.map((key) => (
+              <label
+                key={key}
+                className="cz-sizes-row"
+                htmlFor={baseId + "-loved-" + key}
+              >
+                <span className="cz-sizes-row-label">{LOVED_LABELS[key]}</span>
+                <span className="cz-sizes-row-also" aria-hidden="true" />
+                <input
+                  id={baseId + "-loved-" + key}
+                  className="cz-sizes-row-input"
+                  inputMode="decimal"
+                  value={lovedDraft[key] || ""}
+                  onChange={(e) => setLoved(key, e.target.value)}
+                  placeholder="-"
+                  autoComplete="off"
+                  aria-label={"Loved jacket " + LOVED_LABELS[key].toLowerCase()}
+                />
+                <span className="cz-sizes-row-unit" aria-hidden="true">
+                  {unitShort}
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Modal-only save bar. Embedded settings auto-saves. */}

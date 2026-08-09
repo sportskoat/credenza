@@ -1608,6 +1608,23 @@ export function recommendSize(
   // declared in the title stands in for it — "slim fit shirt" is a real signal
   // about the cut, and ignoring it made a slim shirt read as a regular one.
   const band = isBottoms ? null : chestEaseBand(kind, cut, looseness || declaredFit(title));
+  // Loved Jacket (four-lane debate 2026-08-08, stage 5): when the customer
+  // taped one jacket they love, a coat or blazer grades against THOSE
+  // numbers instead of body-plus-ease. The loved jacket is the fit. The
+  // body numbers stay on the record so the panel still prints honest
+  // "you vs garment" centimetres.
+  // lovedJacket.chest stores a flat armpit-to-armpit tape, so it doubles
+  // against the chart's full chest. Shoulder, sleeve and length compare
+  // straight across — the same measurements the seller prints.
+  const loved =
+    (kind === "coat" || kind === "blazer") && p.lovedJacket && typeof p.lovedJacket === "object"
+      ? p.lovedJacket
+      : null;
+  const lovedNum = (v) => (v != null && isFinite(Number(v)) && Number(v) > 0 ? Number(v) : null);
+  const lovedChest = loved ? (lovedNum(loved.chest) != null ? lovedNum(loved.chest) * 2 : null) : null;
+  const lovedShoulder = loved ? lovedNum(loved.shoulder) : null;
+  const lovedSleeve = loved ? lovedNum(loved.longSleeve) : null;
+  const lovedLength = loved ? lovedNum(loved.length) : null;
   if (isBottoms) {
     if (has("waist") && p.waist != null) {
       primaryKey = "waist";
@@ -1727,16 +1744,29 @@ export function recommendSize(
     return Math.abs(e - (band[0] + band[1]) / 2) * 0.05;
   };
   const score = (r) => {
-    let s = band && isTop ? bandOf(r) : Math.abs(r[primaryKey] - target);
-    if (isTop && !skipShoulder && p.shoulder != null && r.shoulder != null) {
-      s += Math.abs(r.shoulder - (p.shoulder + 2)) * SHOULDER_WEIGHT;
-      if (cut === "set-in" && Math.abs(r.shoulder - (p.shoulder + 2)) > SHOULDER_REJECT_CM) {
+    // Loved Jacket: the chest aims at the taped jacket's own number, not at
+    // a band. Every centimetre off costs the same, in both directions.
+    let s =
+      lovedChest != null && isTop
+        ? Math.abs(r[primaryKey] - lovedChest)
+        : band && isTop
+          ? bandOf(r)
+          : Math.abs(r[primaryKey] - target);
+    // The shoulder target is the loved jacket's seam when it exists — no +2,
+    // a taped garment already wears the way the customer likes.
+    const shoulderTarget =
+      lovedShoulder != null ? lovedShoulder : p.shoulder != null ? Number(p.shoulder) + 2 : null;
+    if (isTop && !skipShoulder && shoulderTarget != null && r.shoulder != null) {
+      s += Math.abs(r.shoulder - shoulderTarget) * SHOULDER_WEIGHT;
+      if (cut === "set-in" && Math.abs(r.shoulder - shoulderTarget) > SHOULDER_REJECT_CM) {
         s += SHOULDER_REJECT_COST;
       }
     }
-    // Sleeves shorter than the arm are worse than sleeves that run long.
-    if (isTop && p[sleeveProfileKey] != null && r.sleeve != null) {
-      s += Math.max(0, p[sleeveProfileKey] - r.sleeve) * 0.6;
+    // Sleeves shorter than the arm are worse than sleeves that run long. The
+    // loved jacket's sleeve stands in for the arm when it is taped.
+    const sleeveTarget = lovedSleeve != null ? lovedSleeve : p[sleeveProfileKey];
+    if (isTop && sleeveTarget != null && r.sleeve != null) {
+      s += Math.max(0, Number(sleeveTarget) - r.sleeve) * 0.6;
     }
     // Secondary hip nudge on bottoms when both sides have it.
     if (!isTop && primaryKey === "waist" && p.hip != null && r.hip != null) {
@@ -1799,10 +1829,13 @@ export function recommendSize(
   ).row;
   let lengthWin = null;
   let lengthPick = null;
+  // The loved jacket's hem is the wanted length when it is taped (stage 5).
   const lengthTarget =
-    isTop && p.length != null && isFinite(Number(p.length))
-      ? Number(p.length) + lengthNudgeCm(fitPref)
-      : null;
+    isTop && lovedLength != null
+      ? lovedLength
+      : isTop && p.length != null && isFinite(Number(p.length))
+        ? Number(p.length) + lengthNudgeCm(fitPref)
+        : null;
   if (lengthTarget != null) {
     const eligible = candidates.filter((r) => r.length != null && primaryFits(r));
     if (eligible.length >= 2) {
@@ -1953,6 +1986,9 @@ export function recommendSize(
     cut,
     easeBand: band,
     neutralSize,
+    // Stage 5: set when a taped loved jacket moved the grading. The reason
+    // line and the panel need to say the pick leaned on it.
+    lovedJacket: lovedChest != null || lovedShoulder != null ? true : null,
   };
   // Optional 4th arg: per-category taste (length + looseness). Looseness can
   // nudge one size up/down; the length axis moves the target length above.
@@ -2340,6 +2376,15 @@ const GARMENT_REASON = {
 };
 export function garmentReasonLine(rec) {
   if (!rec || !rec.garmentKind || !rec.easeBand) return "";
+  // Loved Jacket (debate 2026-08-08, stage 5): the pick graded against the
+  // jacket the customer taped, so the line says so. Anything else would
+  // argue with the numbers.
+  if (rec.lovedJacket) {
+    return (
+      (GARMENT_WORD[rec.garmentKind] || "Jacket") +
+      ": matched to the jacket you love, not to a size-table average."
+    );
+  }
   // A knit sized on a wider or closer band must not claim "everyday room" —
   // the line has to describe the room the pick actually used, or it argues
   // with the centimetres printed under it.
