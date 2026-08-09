@@ -1387,6 +1387,7 @@ const GARMENT_RES = {
   blazer: [/\bblazers?\b/i, /suit\s?jackets?\b/i, /sport\s?coats?\b/i],
   coat: [/\bcoats?\b/i, /\bparkas?\b/i, /\bpuffers?\b/i, /down\s?jackets?\b/i, /\btrench\b/i, /\banoraks?\b/i],
   knit: [/\btees?\b/i, /\bt[-\s]?shirts?\b/i, /\bhoodies?\b/i, /\bsweatshirts?\b/i, /\bcrewnecks?\b/i, /\bpolos?\b/i, /\bsweaters?\b/i, /\bknits?\b/i],
+  tank: [/\btanks?\b/i, /tank[-\s]?tops?\b/i, /\bsleeveless\b/i, /\bsinglets?\b/i, /\bcamisoles?\b/i],
 };
 const GARMENT_ZH = {
   compression: ["紧身", "速干"],
@@ -1394,11 +1395,12 @@ const GARMENT_ZH = {
   blazer: ["西装", "西服"],
   coat: ["大衣", "羽绒服", "棉服", "风衣"],
   knit: ["卫衣", "t恤", "短袖", "长袖", "毛衣", "polo衫"],
+  tank: ["背心", "吊带", "无袖"],
 };
 // Most specific first. "西装外套" holds both a blazer word and a coat word, and
 // a blazer is the narrower claim, so blazer must win. compression outranks
 // knit for the same reason: a dry-fit tee is a dry-fit, not a regular tee.
-const GARMENT_ORDER = ["compression", "blazer", "coat", "woven", "knit"];
+const GARMENT_ORDER = ["compression", "blazer", "coat", "woven", "tank", "knit"];
 // Category is the fallback, never the first answer: a customer files a blazer
 // under Outerwear, and Outerwear alone cannot tell a blazer from a parka.
 const CATEGORY_GARMENT = {
@@ -1505,6 +1507,13 @@ export const CHEST_EASE_BANDS = {
   knit: [5, 10],
   knitRelaxed: [10, 15],
   knitOver: [15, 25],
+  // A tank is a knit worn CLOSE. Kyle 2026-08-09: his Alo and On Cloud tanks
+  // came out X-Large when he wears a Medium or Large. On his real chart
+  // (S 102 / M 106 / L 110 / XL 114 / 2XL 118 cm, body 106.7) the tee band
+  // [5,10] makes the XL the only "fits" — 7.3cm of room on a vest. Stretch
+  // knit sits on the body, so the floor goes negative like compression, and
+  // the top stays well under tee room.
+  tank: [-2.5, 5],
   woven: [10, 15],
   // Three shirt bands (four-lane debate 2026-08-08, stage 3): one broad
   // 5–15 band made every shirt read the same, and shirts were the kind we
@@ -1544,6 +1553,14 @@ export function chestEaseBand(kind, cut, looseness) {
     if (looseness === "oversized" || looseness === "baggy") return CHEST_EASE_BANDS.wovenRoomy;
     return CHEST_EASE_BANDS.woven;
   }
+  // A tank has no sleeve and its "shoulder" column is a strap span, so the
+  // chest carries the whole pick. Slim taste pulls it onto the body; an
+  // oversized taste is a real request for room, so it reads the tee band.
+  if (kind === "tank") {
+    if (looseness === "slim") return CHEST_EASE_BANDS.compression;
+    if (looseness === "oversized" || looseness === "baggy") return CHEST_EASE_BANDS.knit;
+    return CHEST_EASE_BANDS.tank;
+  }
   if (kind !== "knit") return null;
   if (looseness === "slim") return CHEST_EASE_BANDS.knitSlim;
   if (looseness === "oversized" || looseness === "baggy") return CHEST_EASE_BANDS.knitOver;
@@ -1559,6 +1576,7 @@ export function chestEaseBand(kind, cut, looseness) {
 export const GARMENT_WORD = {
   compression: "Dry-fit",
   knit: "Tee",
+  tank: "Tank",
   woven: "Shirt",
   blazer: "Blazer",
   coat: "Coat",
@@ -1736,7 +1754,10 @@ export function recommendSize(
   const sleeveProfileKey = sleeveKind === "short" ? "shortSleeve" : "longSleeve";
   // C: a raglan sleeve has no comparable shoulder seam, and a drop shoulder
   // hangs down the arm by design. Neither one can be graded on shoulder width.
-  const skipShoulder = isTop && (cut === "drop" || cut === "raglan");
+  // A tank's "shoulder" column measures across the straps, not seam to seam.
+  // It is a different measurement, so it cannot score against a saved
+  // shoulder. The chest carries the whole pick (Fable 2026-08-09).
+  const skipShoulder = isTop && (cut === "drop" || cut === "raglan" || kind === "tank");
   // C: reject on the shoulder only when the cut is confirmed set-in, both
   // sides carry a number, and the gap beats a real tolerance. Applied as a
   // heavy cost, not a filter: a chart where every row fails still returns the
@@ -2170,7 +2191,11 @@ export function fitReadRows(chart, rec, profile, category, title = null) {
   // legCategoryFromTitle: the two keep separate saved leg lengths, so the
   // wrong one draws a red verdict off two measurements that never matched.
   const legCategory = legCategoryFromTitle(category, title);
-  const shortSleeve = sleeveStyle(title, chart) === "short";
+  // A tank has no sleeve, and its "shoulder" column is a strap span. Both
+  // rows keep their numbers and claim nothing (Kyle 2026-08-09: the app
+  // graded his tank like a T-shirt and gave him an X-Large).
+  const isTank = !!(rec && rec.garmentKind === "tank");
+  const shortSleeve = sleeveStyle(title, chart) === "short" || isTank;
   const sleeveBodyKey = shortSleeve ? "shortSleeve" : "longSleeve";
   // Fit engine v2. The table must grade a row exactly as the pick graded it,
   // or the panel argues with itself. Two rows change:
@@ -2180,7 +2205,7 @@ export function fitReadRows(chart, rec, profile, category, title = null) {
   //     row becomes information only, the same way a short sleeve already is.
   const easeBand = rec && Array.isArray(rec.easeBand) ? rec.easeBand : null;
   const cut = rec ? rec.cut : null;
-  const noShoulderSeam = !isBottoms && (cut === "drop" || cut === "raglan");
+  const noShoulderSeam = !isBottoms && (cut === "drop" || cut === "raglan" || isTank);
   const chartRows = chart && Array.isArray(chart.rows) ? chart.rows : [];
   // Kyle 2026-08-09: his Arc Shorts read "garment 19.7in · you 37in · -17.3in
   // room · too tight" in red. A 19.7in shorts inseam was graded against a 37in
@@ -2361,8 +2386,12 @@ export function fitReadRows(chart, rec, profile, category, title = null) {
     // no em dashes (site rule). Estimated rows stay silent here; the footnote
     // already names the height estimate.
     let note = null;
-    if (noShoulderSeam && key === "shoulder") {
+    if (isTank && key === "shoulder") {
+      note = "A tank strap is not a shoulder seam. Info only.";
+    } else if (noShoulderSeam && key === "shoulder") {
       note = "A drop or raglan shoulder has no seam to compare. Info only.";
+    } else if (isTank && key === "sleeve" && infoOnly) {
+      note = "A tank has no sleeve. Info only.";
     } else if (shortSleeve && key === "sleeve" && infoOnly) {
       note = "A short sleeve has no fit verdict. Info only.";
     } else if (legMismatch) {

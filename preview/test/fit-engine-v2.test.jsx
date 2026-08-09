@@ -630,3 +630,80 @@ describe("the app never names a size its own chip calls bad", () => {
     expect(sizeCellReads(chart, rec, { chest: 100 }).find((r) => r.size === "L").word).toBe("LOOSE");
   });
 });
+
+// ── The tank top (Kyle 2026-08-09) ───────────────────────────────────────────
+// Kyle: "the aloe tank top or the on cloud tank top was never an extra large,
+// it was a larger medium... It's a tank top. The extra large, there's so much
+// room of chest. Too much body length. The shoulder, too big."
+//
+// The engine had no tank. Every tank fell through to the T-shirt band [5,10]
+// and was graded on shoulder and sleeve like a T-shirt. A tank's chart
+// "shoulder" column is a strap span, and a tank has no sleeve at all.
+describe("a tank top is not a T-shirt", () => {
+  // Kyle's real chart, as the seller wrote it. 胸围 is a half measure, so the
+  // parser doubles it: S 102 / M 106 / L 110 / XL 114 / 2XL 118 cm.
+  const TANK = "尺码 衣长 胸围 肩宽\nS 67 51 50\nM 69 53 52\nL 71 55 54\nXL 73 57 56\n2XL 75 59 58";
+  // Kyle: 42in chest, 19in shoulder, 27in body length.
+  const body = { chest: 106.7, shoulder: 48.3, length: 68.6 };
+
+  it("names a tank from the title, in English and in Chinese", () => {
+    const chart = chartOf(TANK);
+    for (const title of [
+      "Alo Yoga Tank Top",
+      "On Cloud Running Tank",
+      "Sleeveless training top",
+      "Ribbed singlet",
+      "男士背心无袖",
+      "吊带上衣",
+    ]) {
+      expect(garmentType(title, chart, "shirt"), title).toBe("tank");
+    }
+    // A real T-shirt on the same chart must be untouched.
+    expect(garmentType("Cotton crewneck tee", chart, "shirt")).toBe("knit");
+  });
+
+  it("picks the Medium on Kyle's own tank chart, not the X-Large", () => {
+    const chart = chartOf(TANK);
+    // Before: the tee band [5,10] made the XL (+7.3cm) the only in-band row.
+    const asTee = recommendSize(chart, body, "shirt", null, null, "Cotton tee");
+    expect(asTee.size, "a tee on this chart still takes the XL").toBe("XL");
+    // After: a tank reads [-2.5,5], so the M (-0.7cm) and the L (+3.3cm) fit.
+    const rec = recommendSize(chart, body, "shirt", null, null, "Alo Yoga Tank Top");
+    expect(rec.garmentKind).toBe("tank");
+    expect(rec.easeBand).toEqual([-2.5, 5]);
+    expect(rec.size).toBe("M");
+    const words = Object.fromEntries(
+      sizeCellReads(chart, rec, body).map((r) => [r.size, r.word])
+    );
+    expect(words.M).toBe("FITS");
+    expect(words.L).toBe("FITS");
+    expect(words.XL, "Kyle: the XL has too much room").toBe("LOOSE");
+  });
+
+  it("never grades a tank strap against a saved shoulder", () => {
+    const chart = chartOf(TANK);
+    const rec = recommendSize(chart, body, "shirt", null, null, "Alo Yoga Tank Top");
+    const rows = fitReadRows(chart, rec, body, "shirt", "Alo Yoga Tank Top");
+    const shoulder = rows.find((r) => r.key === "shoulder");
+    expect(shoulder, "the shoulder row still shows its number").toBeTruthy();
+    expect(shoulder.ease, "a strap span is not a shoulder seam").toBeNull();
+    expect(shoulder.warn).toBe(false);
+    expect(shoulder.note).toMatch(/strap/i);
+    // The chest carries the whole pick, so the chest row still grades.
+    expect(rows.find((r) => r.key === "chest").ease).not.toBeNull();
+  });
+
+  it("lets a saved taste move the tank band", () => {
+    const chart = chartOf(TANK);
+    const slim = recommendSize(
+      chart, body, "shirt", { length: null, looseness: "slim" }, null, "Alo Yoga Tank Top"
+    );
+    expect(slim.easeBand).toEqual([-2.5, 2.5]);
+    // Asking for oversized is a real request for room, so it reads tee room.
+    const over = recommendSize(
+      chart, body, "shirt", { length: null, looseness: "oversized" }, null, "Alo Yoga Tank Top"
+    );
+    expect(over.easeBand).toEqual([5, 10]);
+    expect(over.size).toBe("XL");
+  });
+});
