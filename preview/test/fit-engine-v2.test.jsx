@@ -279,6 +279,20 @@ describe("the shoulder is a score, not a veto", () => {
     expect(rec.cut).toBe("unknown");
     expect(rec.size).toBe("L");
   });
+
+  it("lets the shoulder lead on a tailored jacket (debate stage 4)", () => {
+    // Debate 2026-08-08: a jacket shoulder miss costs a full point per
+    // centimetre (other tops keep 0.4). Body chest 100, shoulder 45 → wants
+    // shoulder 47. The M sits inside the chest band but its shoulder is 3cm
+    // out; the L is 2.5cm outside the chest band but its shoulder is exact.
+    // At 1.0/cm the M pays 3 and the L pays 2.5, so the L wins. At the old
+    // 0.4 the M paid 1.2 and won — a jacket that fit the chest and not the
+    // shoulder, which cannot be altered.
+    const chart = chartOf("M: chest 110, shoulder 50, length 70\nL: chest 115, shoulder 47, length 72");
+    const rec = recommendSize(chart, body, "outerwear", null, null, "Wool blazer");
+    expect(rec.garmentKind).toBe("blazer");
+    expect(rec.size).toBe("L");
+  });
 });
 
 describe("shorts leg length", () => {

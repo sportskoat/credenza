@@ -1706,6 +1706,11 @@ export function recommendSize(
   // best of them instead of no size at all.
   const SHOULDER_REJECT_CM = 3;
   const SHOULDER_REJECT_COST = 100;
+  // Four-lane debate 2026-08-08 (stage 4): on a tailored jacket the shoulder
+  // is the one measurement that cannot be altered, so a miss costs a full
+  // point per centimetre and decides the pick early. Other tops keep 0.4.
+  // The set-in reject above 3cm stands unchanged.
+  const SHOULDER_WEIGHT = kind === "blazer" || kind === "coat" ? 1 : 0.4;
   // Two scores this close are a tie, and the tie goes to the bigger size.
   // Nobody likes a shirt that is too tight.
   const TIE_EPSILON = 0.5;
@@ -1718,13 +1723,13 @@ export function recommendSize(
     if (e > band[1]) return e - band[1];
     // Inside the band every size is correct, so the pick belongs to the
     // shoulder and the sleeve. This last term only breaks a dead tie — at
-    // 0.05 it can never outweigh the shoulder's 0.4.
+    // 0.05 it can never outweigh the shoulder's weight.
     return Math.abs(e - (band[0] + band[1]) / 2) * 0.05;
   };
   const score = (r) => {
     let s = band && isTop ? bandOf(r) : Math.abs(r[primaryKey] - target);
     if (isTop && !skipShoulder && p.shoulder != null && r.shoulder != null) {
-      s += Math.abs(r.shoulder - (p.shoulder + 2)) * 0.4;
+      s += Math.abs(r.shoulder - (p.shoulder + 2)) * SHOULDER_WEIGHT;
       if (cut === "set-in" && Math.abs(r.shoulder - (p.shoulder + 2)) > SHOULDER_REJECT_CM) {
         s += SHOULDER_REJECT_COST;
       }
@@ -1986,7 +1991,7 @@ const FIT_READ_TOP_ORDER = ["chest", "length", "shoulder", "sleeve"];
 const FIT_READ_BOTTOM_ORDER = ["waist", "hip", "pantsLength", "length"];
 // Ideal wearing ease per measurement (garment minus body, cm) and the ± slack
 // that still counts as inside tolerance. Chest/waist/hip mirror the targets
-// recommendSize aims for; shoulder's +2/×0.4 weight becomes a wider slack.
+// recommendSize aims for; shoulder's +2 target becomes a wider slack.
 const FIT_READ_EASE = {
   chest: { ideal: 12, span: 6 },
   shoulder: { ideal: 2, span: 3 },
