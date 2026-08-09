@@ -1322,6 +1322,54 @@ describe("DetailBody derived-body rail and confidence", () => {
     expect(words).not.toContain("YOUR FIT");
   });
 
+  // Kyle 2026-08-09: "it's also not giving us a pick. We don't have a pick."
+  // On a chart with no good size the recommended chip keeps its honest word
+  // (TIGHT), and that word used to be the only thing naming the pick. A small
+  // CLOSEST line names it now, so the word never has to lie.
+  it("names the pick on its own chip when the word cannot say YOUR FIT", () => {
+    const noGoodSize = item("closest-mark", {
+      sizeNotes:
+        "M: chest 110, shoulder 48, length 71.9\n" +
+        "L: chest 121.9, shoulder 51.8, length 73.9\n" +
+        "XL: chest 132, shoulder 55.4, length 75.9",
+    });
+    const { container } = render(
+      body(noGoodSize, {
+        bodyProfile: { chest: 106.7, shoulder: 48.3, firstSizeSource: "measure" },
+        onSaveBodyProfile: vi.fn(),
+        titleTarget: null,
+      })
+    );
+    const marks = [...container.querySelectorAll(".cz-sizing-cell-mark")];
+    expect(marks.length, "exactly one chip is the pick").toBe(1);
+    expect(marks[0].textContent).toBe("CLOSEST");
+    // It rides on the recommended chip, beside the honest word.
+    const chip = marks[0].closest(".cz-sizing-cell");
+    expect(chip.classList.contains("is-rec")).toBe(true);
+    expect(chip.querySelector(".cz-sizing-cell-word").textContent).toBe("TIGHT");
+    // A screen reader hears both.
+    expect(chip.getAttribute("aria-label")).toMatch(/closest, tight/);
+  });
+
+  // A size that really fits says so, and needs no second label.
+  it("adds no CLOSEST line when the pick really fits", () => {
+    const good = item("no-mark", {
+      sizeNotes: "M: chest 114, shoulder 48.3, length 71.9\nL: chest 119, shoulder 50.3, length 73.9",
+    });
+    const { container } = render(
+      body(good, {
+        bodyProfile: { chest: 106.7, shoulder: 48.3, firstSizeSource: "measure" },
+        onSaveBodyProfile: vi.fn(),
+        titleTarget: null,
+      })
+    );
+    expect(container.querySelectorAll(".cz-sizing-cell-mark").length).toBe(0);
+    const words = [...container.querySelectorAll(".cz-sizing-cell-word")].map(
+      (n) => n.textContent
+    );
+    expect(words).toContain("YOUR FIT");
+  });
+
   // The other half of the same rule: a chart that DOES fit keeps its green
   // claim. The badge only steps down when there is something to step down for.
   it("a size that really fits keeps the green Verified fit badge", () => {

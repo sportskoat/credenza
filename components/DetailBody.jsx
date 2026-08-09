@@ -828,6 +828,17 @@ function SizingBlock({
                   ? "YOUR FIT"
                   : "ALSO FITS"
                 : read.word;
+            // Kyle 2026-08-09: "it's also not giving us a pick. We don't have
+            // a pick." When the recommended size is only the CLOSEST one, its
+            // word stays honest (TIGHT), and the word was the only thing that
+            // ever said "this is the one". So the chip lost its name. A small
+            // line above the word carries it instead. The word never lies to
+            // make room for the label.
+            const mark = manualOffPick
+              ? null
+              : read.isPick && word !== "YOUR FIT"
+                ? "CLOSEST"
+                : null;
             const tone =
               word === "YOUR FIT"
                 ? " is-fit"
@@ -853,6 +864,7 @@ function SizingBlock({
                 aria-label={
                   (formatSizeToken(read.size) || read.size) +
                   ", " +
+                  (mark ? mark.toLowerCase() + ", " : "") +
                   word.toLowerCase()
                 }
                 // A tap always picks; clearing keeps its own doors (the Other
@@ -870,6 +882,7 @@ function SizingBlock({
                 <span className="cz-sizing-cell-k is-short" aria-hidden="true">
                   {compactSizeToken(read.size) || read.size}
                 </span>
+                {mark ? <span className="cz-sizing-cell-mark">{mark}</span> : null}
                 <span className={"cz-sizing-cell-word" + tone}>{word}</span>
                 <span className="cz-sizing-cell-ease">
                   {read.label} {signed(read.ease)}

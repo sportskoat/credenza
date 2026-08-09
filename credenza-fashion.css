@@ -16226,6 +16226,20 @@ input.cz-sizing-cell.is-custom:focus-visible {
   display: none;
 }
 
+/* Kyle 2026-08-09: "it's also not giving us a pick. We don't have a pick."
+   When the recommended size is only the CLOSEST one its word stays honest —
+   TIGHT, not YOUR FIT — and the word was the only thing that ever named the
+   pick. This small line names it instead, so the word never has to lie. */
+.cz-sizing-cell-mark {
+  font-family: var(--cz-mono);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
 /* 2026-08-09 (Kyle: "it's too gray, you can't really even see what the fit
    is"). Three review lanes returned the same type scale: the verdict word is
    the loudest thing on the chip, the size name steps back, the ease lines sit
@@ -16271,7 +16285,8 @@ input.cz-sizing-cell.is-custom:focus-visible {
   color: #fff;
 }
 
-.cz-sizing-cell.is-pick .cz-sizing-cell-ease {
+.cz-sizing-cell.is-pick .cz-sizing-cell-ease,
+.cz-sizing-cell.is-pick .cz-sizing-cell-mark {
   color: rgba(255, 255, 255, 0.85);
 }
 
@@ -21060,6 +21075,10 @@ input.cz-sizing-fix-size {
   .cz-dpanel .cz-sizing-cell.is-pick .cz-sizing-cell-word,
   .cz-dpanel .cz-sizing-cell.is-pick-manual .cz-sizing-cell-word {
     color: var(--cz-action-text);
+  }
+  .cz-dpanel .cz-sizing-cell.is-pick .cz-sizing-cell-mark,
+  .cz-dpanel .cz-sizing-cell.is-pick-manual .cz-sizing-cell-mark {
+    color: color-mix(in srgb, var(--cz-action-text) 66%, transparent);
   }
   .cz-dpanel .cz-sizing-cell.is-pick .cz-sizing-cell-word.is-fit {
     color: var(--cz-money-on-white);
