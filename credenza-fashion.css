@@ -16673,12 +16673,16 @@ input.cz-sizing-cell.is-custom:focus-visible {
   to { opacity: 1; }
 }
 
-/* The garment: a quiet tick at the center (50%, set inline) plus its real
-   number tagged above the rail. */
+/* The garment: a quiet tick plus its real number tagged above the rail.
+   Debate 2026-08-08 (stage 2): on a graded row the garment is the moving
+   mark — it slides when the customer taps a new size (smooth, not a jump,
+   same rule Kyle set for the YOU line 2026-07-31). On a row with no
+   verdict it sits at the center (50%, set inline). */
 .cz-fitread-garment {
   position: absolute;
   top: 0;
   bottom: 0;
+  transition: left var(--dur-open) var(--ease-out);
   animation: cz-fitread-fade var(--dur-open) var(--ease-out) both;
 }
 
@@ -16705,10 +16709,10 @@ input.cz-sizing-cell.is-custom:focus-visible {
   color: var(--cz-ink);
 }
 
-/* The customer: a solid line with "YOU · n" tagged below the rail. Ink, not
-   green — green is reserved for money and the recommended size. Tier colors
-   ride the same tokens the old mark used. The line slides when the customer
-   taps a new size (Kyle 2026-07-31: smooth, not a jump). */
+/* The customer: a solid line with "YOU · n" tagged below the rail, pinned at
+   the center of a graded row (debate 2026-08-08, stage 2). Ink, not green —
+   green is reserved for money and the recommended size. Tier colors ride
+   the same tokens the old mark used. */
 .cz-fitread-you {
   position: absolute;
   top: 13px;
@@ -16717,7 +16721,7 @@ input.cz-sizing-cell.is-custom:focus-visible {
   border-radius: 1.5px;
   background: var(--cz-ink);
   transform: translateX(-50%);
-  transition: left var(--dur-open) var(--ease-out), background-color var(--dur-open) var(--ease-out);
+  transition: background-color var(--dur-open) var(--ease-out);
   animation: cz-fitread-fade var(--dur-open) var(--ease-out) both;
 }
 
@@ -16754,6 +16758,7 @@ input.cz-sizing-cell.is-custom:focus-visible {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .cz-fitread-garment,
   .cz-fitread-you {
     transition: none;
   }

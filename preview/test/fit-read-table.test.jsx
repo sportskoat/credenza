@@ -85,17 +85,17 @@ describe("fitReadRows", () => {
     expect(chest.yours).toBe(108);
     expect(chest.ease).toBe(8);
     expect(chest.warn).toBe(false);
-    // Redesign 2026-08-08: the band is the BODY range this cut fits
-    // (116 − 10 .. 116 − 5 = 106..111) and the mark is the body number.
-    // Body 108 sits inside the range, so the mark lands inside the band.
+    // Debate stage 2 (2026-08-08): the band is the GARMENT range that fits
+    // this body (108 + 5 .. 108 + 10 = 113..118) and the mark is the garment
+    // number. Garment 116 sits inside the range, so the mark lands in-band.
     expect(chest.bandLeft).toBeGreaterThan(0);
     expect(chest.bandWidth).toBeGreaterThan(0);
     const bandCenter = chest.bandLeft + chest.bandWidth / 2;
     expect(chest.mark).toBeGreaterThan(chest.bandLeft);
     expect(chest.mark).toBeLessThan(chest.bandLeft + chest.bandWidth);
-    // Ease +8 is above the knit ideal 7.5, so the body number sits LEFT of
-    // the band center on the body ruler (mirror of the old ease ruler).
-    expect(chest.mark).toBeLessThan(bandCenter);
+    // Ease +8 is above the knit ideal 7.5, so the garment mark sits RIGHT of
+    // the band center on the body-centered ruler.
+    expect(chest.mark).toBeGreaterThan(bandCenter);
 
     // Body length has no body-side field: information, never a verdict.
     const length = rows[1];
@@ -114,9 +114,9 @@ describe("fitReadRows", () => {
     const chest = rows.find((r) => r.key === "chest");
     expect(chest.ease).toBe(20);
     expect(chest.warn).toBe(true);
-    // The body number (96) sits below the fit range (106..111): LEFT of the
-    // band on the body ruler.
-    expect(chest.mark).toBeLessThan(chest.bandLeft);
+    // The fit range for body 96 is 101..106; the garment (116) sits above
+    // it: RIGHT of the band on the body-centered ruler.
+    expect(chest.mark).toBeGreaterThan(chest.bandLeft + chest.bandWidth);
   });
 
   it("keeps an extreme sleeve mark on the bar, not flush on the numbers", () => {
@@ -141,9 +141,9 @@ describe("fitReadRows", () => {
 
   it("moves the mark between sizes on an oversized coat (Kyle red-line pin)", () => {
     // Every size is oversized on sleeve (> +5"); a per-size private scale
-    // would pin the YOU line at one spot. The ruler covers every size on the
-    // chart, so the line visibly slides with the size pick. On the body
-    // ruler a BIGGER garment pushes the body number further LEFT.
+    // would pin the garment mark at one spot. The ruler covers every size on
+    // the chart, so the mark visibly slides with the size pick. On the
+    // body-centered ruler a BIGGER garment pushes the mark further RIGHT.
     const chart = parseSizeChart(
       "S: chest 124, shoulder 50, length 74, sleeve 80\n" +
         "M: chest 128, shoulder 52, length 76, sleeve 82\n" +
@@ -166,11 +166,11 @@ describe("fitReadRows", () => {
       expect(sleeve.mark).toBeLessThan(98);
       marks[size] = sleeve.mark;
     }
-    // S and L must differ — the line visibly slides with the size pick.
+    // S and L must differ — the mark visibly slides with the size pick.
     expect(marks.S).not.toBe(marks.L);
-    expect(marks.S).toBeGreaterThan(marks.M);
-    expect(marks.M).toBeGreaterThan(marks.L);
-    expect(marks.L).toBeGreaterThan(marks.XL);
+    expect(marks.S).toBeLessThan(marks.M);
+    expect(marks.M).toBeLessThan(marks.L);
+    expect(marks.L).toBeLessThan(marks.XL);
   });
 
   it("keeps band, orange zones, and tier flags on one map (three tiers)", () => {
@@ -437,7 +437,7 @@ describe("FitReadTable in the detail body", () => {
     expect(scoped.queryByText("THEIRS")).toBe(null);
     expect(scoped.queryByText("TIGHT")).toBe(null);
     expect(
-      scoped.getByText(/The center of the bar is the garment's size/)
+      scoped.getByText(/The center of the bar is your number/)
     ).toBeInTheDocument();
 
     // The picked row is M: chest 116 vs 108 = +8, shoulder 46 vs 45 = +1.
@@ -867,16 +867,18 @@ describe("fit-read number legibility (2026-08-08 redesign)", () => {
     expect(dpanel[0]).toContain("min-height: 44px");
   });
 
-  it("draws the garment-centered ruler: rail, center tick, dashed band", () => {
+  it("draws the body-centered ruler: rail, garment tick, dashed band", () => {
     expect(FIT_CSS).toMatch(/\.cz-fitread-rail\s*\{[^}]+\}/);
     expect(FIT_CSS).toMatch(/\.cz-fitread-garment-tick\s*\{[^}]+\}/);
     const dashed = FIT_CSS.match(/\.cz-fitread-band\.is-dashed\s*\{[^}]+\}/);
     expect(dashed, "dashed band rule missing").toBeTruthy();
     expect(dashed[0]).toContain("dashed");
-    // The YOU line slides between sizes (Kyle 2026-07-31: smooth, not a jump).
-    const you = FIT_CSS.match(/\.cz-fitread-you\s*\{[^}]+\}/);
-    expect(you, "YOU line rule missing").toBeTruthy();
-    expect(you[0]).toContain("transition: left");
+    // Debate stage 2 (2026-08-08): the garment mark slides between sizes
+    // (Kyle 2026-07-31: smooth, not a jump); the YOU line is pinned center.
+    const garment = FIT_CSS.match(/\.cz-fitread-garment\s*\{[^}]+\}/);
+    expect(garment, "garment mark rule missing").toBeTruthy();
+    expect(garment[0]).toContain("transition: left");
+    expect(FIT_CSS).toMatch(/\.cz-fitread-you\s*\{[^}]+\}/);
   });
 
   it("restores a 44px hit area on quiet chart links without growing the visual", () => {

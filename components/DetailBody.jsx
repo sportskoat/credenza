@@ -1885,13 +1885,12 @@ function SellerChartFold({
 
 // ── Fit-read track + measure rows (shared by Fit tab + Chart tab) ──
 //
-// Redesign 2026-08-08 (Kyle's approved mockup, spec
-// docs/size-chart-redesign-spec.md): the GARMENT number sits at the center of
-// every bar with its value tagged above; the "YOU" line marks the customer's
-// body number with its value tagged below. The green band is the body range
-// this cut fits; amber zones flank it; a mark in a zone reads amber ("get
-// away with it"), only past the zone does it go red. Dashed band = no
-// verdict (missing or estimated number). Row math lives in fitReadRows
+// Four-lane debate 2026-08-08 (stage 2): a graded row pins the customer's
+// BODY number at the center of the bar with "YOU · n" tagged below; the
+// green band is the GARMENT range that fits that body; amber zones flank
+// it; the garment number is the moving mark with its value tagged above.
+// A row with no verdict (missing or estimated number) keeps the garment at
+// the center and draws the band dashed. Row math lives in fitReadRows
 // (pure, tested alone). The old tight↔loose ease ruler is gone.
 function FitReadTrack({
   theirs,
@@ -1936,7 +1935,10 @@ function FitReadTrack({
         />
       ) : null}
       {theirs != null ? (
-        <span className="cz-fitread-garment" style={{ left: "50%" }}>
+        <span
+          className="cz-fitread-garment"
+          style={{ left: (mark != null && yours != null ? mark : 50) + "%" }}
+        >
           <span className="cz-fitread-garment-tick" />
           <span className="cz-fitread-garment-tag">{formatMeasure(theirs, units)}</span>
         </span>
@@ -1948,7 +1950,7 @@ function FitReadTrack({
             (warn ? " is-warn" : soft ? " is-soft" : "") +
             (estimated ? " is-est" : "")
           }
-          style={{ left: mark + "%" }}
+          style={{ left: "50%" }}
         >
           <span className="cz-fitread-you-tag">
             {"YOU · " + (estimated ? "~" : "") + formatMeasure(yours, units)}
@@ -2129,10 +2131,10 @@ function FitReadTable({
       <FitReadMeasureRows rows={rows} hasChart={hasChart} units={units} />
       {hasChart ? (
         <p className="cz-fitread-legend">
-          The center of the bar is the garment's size. The line is your body.
-          Green is the body range this cut fits. Amber is just past it, close
-          enough to wear. A dashed band means a number is missing and we are
-          not guessing at one.
+          The center of the bar is your number. The line is the garment.
+          Green is the garment range that fits you. Amber is just past it,
+          close enough to wear. A dashed band means a number is missing and
+          we are not guessing at one.
         </p>
       ) : null}
       {canOpenChart && chartOpen ? (

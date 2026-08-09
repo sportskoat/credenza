@@ -2110,51 +2110,56 @@ export function fitReadRows(chart, rec, profile, category, title = null) {
     let softRight = null;
     let softRightWidth = null;
     if (theirs != null && target) {
-      // Ruler, redesign 2026-08-08 (Kyle's approved mockup, spec
-      // docs/size-chart-redesign-spec.md): the GARMENT number pins the center
-      // (50%) of every row. The green band is the BODY range this cut fits
-      // (garment minus the drafted ease range). The mark is the customer's
-      // body number (the "YOU" line). Inside the band = fits, amber zone just
-      // past it, red past the zone. Tier rule unchanged: read from the ease
-      // VALUE so clamped pixels can never flip a color.
+      // Ruler, four-lane debate 2026-08-08 (stage 2): a graded row pins the
+      // customer's BODY number at the center (50%). The green band is the
+      // GARMENT range that fits that body (body + draftedLo .. body +
+      // draftedHi); amber zones flank it; the mark is the garment number.
+      // Tier rule unchanged: read from the ease VALUE so clamped pixels can
+      // never flip a color.
       const softDelta = fitReadSoftDelta(key);
       const draftedLo = target.ideal - target.span;
       const draftedHi = target.ideal + target.span;
-      // Half the track must cover the soft-zone edges AND the gap between the
-      // body number and EVERY size on the chart (not just the pick), or the
-      // line would pin at one spot when the customer taps between sizes.
-      // 10% air keeps the extreme value off the track edge.
-      let need = Math.max(draftedHi + softDelta, Math.abs(softDelta - draftedLo));
-      if (yours != null) {
+      if (ease != null) {
+        // Half the track must cover the soft-zone edges AND the gap between
+        // EVERY size on the chart and the body number (not just the pick),
+        // or the garment mark would pin at one spot when the customer taps
+        // between sizes. 10% air keeps the extreme value off the track edge.
+        let need = Math.max(draftedHi + softDelta, Math.abs(softDelta - draftedLo));
         for (const row of chartRows) {
           const g = row[key];
           if (g != null && isFinite(Number(g))) {
-            need = Math.max(need, Math.abs(yours - Number(g)));
+            need = Math.max(need, Math.abs(Number(g) - yours));
           }
         }
-      }
-      const half = need > 0 ? need * 1.1 : Math.max(target.span + softDelta, 1);
-      const pct = (v) => {
-        const p = 50 + ((v - theirs) / half) * 50;
-        return Math.max(2, Math.min(98, p));
-      };
-      // Band in body units: a body fits when garment minus body sits inside
-      // the drafted ease range, so the fit range is theirs-draftedHi ..
-      // theirs-draftedLo.
-      bandLeft = pct(theirs - draftedHi);
-      const bandRight = pct(theirs - draftedLo);
-      bandWidth = bandRight - bandLeft;
-      if (ease != null) {
-        // Amber zones belong to a verdict: they draw only on a row that has
-        // one (solid band). A dashed row shows the band and nothing more.
-        softLeft = pct(theirs - draftedHi - softDelta);
+        const half = need > 0 ? need * 1.1 : Math.max(target.span + softDelta, 1);
+        const pct = (v) => {
+          const p = 50 + ((v - yours) / half) * 50;
+          return Math.max(2, Math.min(98, p));
+        };
+        bandLeft = pct(yours + draftedLo);
+        const bandRight = pct(yours + draftedHi);
+        bandWidth = bandRight - bandLeft;
+        softLeft = pct(yours + draftedLo - softDelta);
         softLeftWidth = Math.max(0, bandLeft - softLeft);
         softRight = bandRight;
-        softRightWidth = Math.max(0, pct(theirs - draftedLo + softDelta) - bandRight);
-        mark = pct(yours);
+        softRightWidth = Math.max(0, pct(yours + draftedHi + softDelta) - bandRight);
+        mark = pct(theirs);
         const beyond = Math.max(ease - draftedHi, draftedLo - ease);
         warn = beyond > softDelta;
         soft = !warn && beyond > 0;
+      } else {
+        // No verdict (missing or estimated body number): the garment pins
+        // the center instead and the dashed band shows the body range this
+        // cut fits. No mark, no amber — a dashed row claims nothing.
+        let need = Math.max(draftedHi + softDelta, Math.abs(softDelta - draftedLo));
+        const half = need > 0 ? need * 1.1 : Math.max(target.span + softDelta, 1);
+        const pct = (v) => {
+          const p = 50 + ((v - theirs) / half) * 50;
+          return Math.max(2, Math.min(98, p));
+        };
+        bandLeft = pct(theirs - draftedHi);
+        const bandRight = pct(theirs - draftedLo);
+        bandWidth = bandRight - bandLeft;
       }
     }
     // Dashed = no verdict (locked legend, 2026-08-08): the body number is

@@ -682,7 +682,9 @@ describe("DesktopDetailPanel (Fix B)", () => {
       return el;
     });
     expect(bars.querySelectorAll(".cz-fitread-you").length).toBeGreaterThan(0);
-    const marksBefore = [...bars.querySelectorAll(".cz-fitread-you")].map(
+    // Debate stage 2 (2026-08-08): the YOU line is pinned at the bar center;
+    // the GARMENT mark is what moves when the customer taps a new size.
+    const marksBefore = [...bars.querySelectorAll(".cz-fitread-garment")].map(
       (n) => n.style.left
     );
 
@@ -698,7 +700,7 @@ describe("DesktopDetailPanel (Fix B)", () => {
     await user.click(pickRow);
 
     const marksAfter = [
-      ...document.querySelectorAll(".cz-fitread .cz-fitread-you"),
+      ...document.querySelectorAll(".cz-fitread .cz-fitread-garment"),
     ].map((n) => n.style.left);
     expect(marksAfter.length).toBe(marksBefore.length);
     expect(marksAfter.some((left, i) => left !== marksBefore[i])).toBe(true);
