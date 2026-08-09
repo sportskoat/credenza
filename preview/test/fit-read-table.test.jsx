@@ -481,15 +481,12 @@ describe("FitReadTable in the detail body", () => {
     expect(scoped.getByText("How the Medium sits on you")).toBeInTheDocument();
     expect(scoped.queryByText("FIT READ")).toBe(null);
     // Redesign 2026-08-08: no TIGHT/TRUE/LOOSE scale and no column heads.
-    // The row head reads "garment X · you Y · +Z room · word"; the legend
-    // under the rows is two short sentences now.
+    // The row head reads "garment X · you Y · +Z room · word".
     expect(scoped.queryByText("THEIRS")).toBe(null);
     expect(scoped.queryByText("TIGHT")).toBe(null);
-    expect(scoped.getByText(/The line is your body\. The bar is the room\./)).toBeInTheDocument();
-    // The legend names the colour ladder Kyle asked for (2026-08-09).
-    expect(scoped.getByText(/turns amber, then\s+red/)).toBeInTheDocument();
-    // The source line says where the numbers came from.
-    expect(scoped.getByText(/The seller's chart · 3 sizes/)).toBeInTheDocument();
+    // The legend went 2026-08-09 (Fable's verdict). One bar, one colour, no
+    // sentence to explain it.
+    expect(scoped.queryByText(/The line is your body/)).toBe(null);
 
     // The picked row is M: chest 116 vs 108 = +8, shoulder 46 vs 45 = +1.
     // The garment number shows twice per row: the head and the bar tag.
@@ -498,16 +495,20 @@ describe("FitReadTable in the detail body", () => {
     expect(scoped.getByText("+8cm room")).toBeInTheDocument();
     expect(scoped.getByText("+1cm room")).toBeInTheDocument();
 
-    // Bands on every row with a garment number: chest + shoulder solid,
-    // estimated body length DASHED (no verdict on a guessed number).
-    expect(table.querySelectorAll(".cz-fitread-band").length).toBe(3);
+    // 2026-08-09 (Fable's verdict, after Kyle: "it looks very bad"): a graded
+    // row draws ONE shape — the room fill. The target outline and the amber
+    // flanking zones are gone; they stacked four shapes on one track and read
+    // as mud. Only a row with NO verdict keeps its dashed band, because that
+    // band is the one thing the row has to say.
+    expect(table.querySelectorAll(".cz-fitread-soft").length).toBe(0);
+    expect(table.querySelectorAll(".cz-fitread-band").length).toBe(1);
     expect(table.querySelectorAll(".cz-fitread-band.is-dashed").length).toBe(1);
-    // YOU lines only on graded rows (chest + shoulder). The estimated row
-    // has no line and no amber zones.
+    // Fills on the two graded rows (chest + shoulder), never on the dashed one.
+    expect(table.querySelectorAll(".cz-fitread-fill").length).toBe(2);
+    // YOU lines only on graded rows.
     expect(table.querySelectorAll(".cz-fitread-you").length).toBe(2);
     expect(table.querySelectorAll(".cz-fitread-you.is-warn").length).toBe(0);
-    expect(table.querySelectorAll(".cz-fitread-soft").length).toBe(4);
-    // Band geometry is inline from the ruler, not fixed CSS left/width.
+    // Geometry is inline from the ruler, not fixed CSS left/width.
     const band = table.querySelector(".cz-fitread-band");
     expect(band.style.left).toMatch(/%$/);
     expect(band.style.width).toMatch(/%$/);
@@ -522,7 +523,7 @@ describe("FitReadTable in the detail body", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders the orange tier: amber mark and ease, flank zones on the track", () => {
+  it("renders the orange tier: amber line, ease, and room fill", () => {
     // Kyle 2026-08-02: chest 105 → M ease +11 on the 5–10 knit band reads
     // ORANGE ("get away with it"), not red. His exact example.
     const { container } = renderBody(fitItem(), {
@@ -533,8 +534,9 @@ describe("FitReadTable in the detail body", () => {
     expect(table.querySelectorAll(".cz-fitread-you.is-soft").length).toBe(1);
     expect(table.querySelectorAll(".cz-fitread-you.is-warn").length).toBe(0);
     expect(table.querySelectorAll(".cz-fitread-diff.is-soft").length).toBe(1);
-    // Both graded rows (chest, shoulder) draw both flank zones from the ruler.
-    expect(table.querySelectorAll(".cz-fitread-soft").length).toBe(4);
+    // The tier survives on the fill; the flanking zones do not draw any more.
+    expect(table.querySelectorAll(".cz-fitread-fill.is-soft").length).toBe(1);
+    expect(table.querySelectorAll(".cz-fitread-soft").length).toBe(0);
     // An orange row still counts as inside for the verdict line — the old
     // +4 slack's verdict, now shown honestly by the color.
     expect(
@@ -1075,11 +1077,13 @@ describe("fit-read number legibility (2026-08-08 redesign)", () => {
 // theme's amber tokens in both palettes — a raw hex would rot on Blackout.
 describe("three-tier orange paints from theme tokens", () => {
   const HEX = /#[0-9a-fA-F]{3,8}\b/;
-  it("soft track zone, YOU line, and room number use var(--cz-warn*) and no hex", () => {
-    const zone = FIT_CSS.match(/\.cz-fitread-soft\s*\{[^}]+\}/);
-    expect(zone, "soft zone rule missing").toBeTruthy();
-    expect(zone[0]).toContain("var(--cz-warn)");
-    expect(zone[0]).not.toMatch(HEX);
+  it("soft room fill, YOU line, and room number use var(--cz-warn*) and no hex", () => {
+    // The .cz-fitread-soft flanking zone retired 2026-08-09 (Fable's verdict).
+    // The soft TIER lives on the room fill now — same token rule applies.
+    const fill = FIT_CSS.match(/\.cz-fitread-fill\.is-soft\s*\{[^}]+\}/);
+    expect(fill, "soft room-fill rule missing").toBeTruthy();
+    expect(fill[0]).toContain("var(--cz-warn)");
+    expect(fill[0]).not.toMatch(HEX);
 
     const mark = FIT_CSS.match(/\.cz-fitread-you\.is-soft\s*\{[^}]+\}/);
     expect(mark, "soft YOU line rule missing").toBeTruthy();

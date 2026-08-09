@@ -170,36 +170,45 @@ Open: Kyle has NOT approved any of these decisions. No build started.
 
 ## ACTIVE NOW — 2026-08-09 (read this before you edit)
 
-**Claude reviewed the Fit card rebuild. No code edits made — review only.**
+**Fit card rebuild rejected by Kyle, then fixed. Two review lanes agreed.**
 
 Kyle looked at the screen and said “are we being goofy now? LOOK AT THESE
-NEW DETAILS, IT LOOKS VERY BAD. CMONNN GUYS”. The Fit card was rebuilt today
-(2026-08-09) and regressed badly. The review verdict, in one sentence: kill
-half the bar layers, delete the duplicate source line, and start the chart
-fold closed.
+NEW DETAILS, IT LOOKS VERY BAD. CMONNN GUYS”. He was right. Two independent
+lanes reviewed it (Fable 5 and DeepSeek V4) and reached the same verdict:
+kill half the bar layers, delete the duplicate source line, and start the
+chart fold closed.
 
-### Files dirty from the Fit card rebuild (committed as WIP below)
+### Review findings, ranked worst-first (both lanes agreed)
 
-- `components/DetailBody.jsx` — FitReadTrack, FitReadMeasureRows, FitReadTable, SizingBlock editorial header, desktop tab markup
-- `credenza-fashion.css` — .cz-fitread-* rules, .cz-dpanel overrides, .cz-fit-tab, tab bar pill hide
+1. Bars read as broken progress bars — four overlapping layers per row
+2. Fit tab invisible: SlidingTabsPill still painted a white capsule behind
+   plain white text after the tab bar became underlined text
+3. Source line duplicated above the SellerChartFold toggle heading
+4. Two “Hide” toggles stack on one screen
+5. Pile of undifferentiated gray text (legend + source + footnote + fold)
 
-### Review findings (see full verdict in conversation)
+Bar verdict (both lanes, independently): draw only the coloured room fill
+plus the body line and the garment mark. Delete the soft zones and the
+target outline. Colour already states the tier three other ways on the same
+row — the room number, the plain word, and the body line.
 
-Ranked worst-first:
-1. Bars read as broken progress bars — five overlapping layers per row
-2. Source line duplicated above the SellerChartFold toggle heading
-3. Two “Hide” toggles stack on one screen
-4. Pile of undifferentiated gray text (legend + source + footnote + fold)
-5. Tab bar pill hidden (CSS ok, but fragile)
+### What shipped in response
 
-Bar verdict: draw only the coloured room fill + body tick. Delete soft
-zones, target band outline, and rail.
+- Soft zones and the target outline no longer draw on a graded row. A row
+  with NO verdict keeps its dashed band — it is that row's only shape.
+- The solid green `.cz-dpanel .cz-fitread-band` override is gone. It was a
+  raw colour under the fill, and it was half the mud.
+- The legend and the duplicate source line are deleted.
+- `SellerChartFold` starts closed (was open since 2026-08-02 item 4).
+- `.cz-fit-tabs > .t-tabs-pill` is hidden. Every other tab bar keeps its
+  capsule; only this bar switched to an underline.
 
-### Status
+### Warning about the DeepSeek lane (2026-08-09)
 
-- Git dirty: DetailBody.jsx + credenza-fashion.css from today's rebuild
-- No code edits were made during review
-- Kyle has not yet approved any changes
+The DeepSeek review was told “advise only, do not edit any files”. It edited
+this file, then committed and pushed the other lane's in-progress work as
+`c9b0e2a`. No work was lost, but that commit was not authorised. Give that
+lane read-only tools, or check `git log` after every run.
 
 ---
 

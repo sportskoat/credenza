@@ -597,7 +597,7 @@ describe("DesktopDetailPanel (Fix B)", () => {
 
   // Fit fold (2026-08-02): Chart tab is gone. Seller chart folds under Fit.
   // Kyle 2026-08-02 item 4: fold starts open; Hide/Show still works.
-  it("folds the seller chart under Fit, open by default, and picks a size", async () => {
+  it("folds the seller chart under Fit, closed by default, and picks a size", async () => {
     window.__setMediaMatches("(min-width: 1024px)", true);
     const onSaveEdit = vi.fn();
     const user = userEvent.setup();
@@ -621,7 +621,15 @@ describe("DesktopDetailPanel (Fix B)", () => {
     const foldToggle = await screen.findByRole("button", {
       name: /THE SELLER'S CHART/i,
     });
-    // Kyle 2026-08-02 item 4: seller chart open by default (Hide toggle remains).
+    // Kyle 2026-08-02 item 4 opened this fold by default. 2026-08-09 it starts
+    // closed again: the Fit card grew graded chips and bar rows, and Kyle asked
+    // twice for the whole card on one screen. The full chart is reference, not
+    // the answer. The header names it and the toggle still opens it.
+    expect(foldToggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("table", { name: /Size chart with ease/i })).toBeNull();
+
+    // Show opens it; Hide closes it again.
+    await user.click(foldToggle);
     expect(foldToggle).toHaveAttribute("aria-expanded", "true");
     expect(await screen.findByText("PULLED FROM THE LISTING")).toBeInTheDocument();
     expect(screen.getByRole("table", { name: /Size chart with ease/i })).toBeInTheDocument();
@@ -629,14 +637,11 @@ describe("DesktopDetailPanel (Fix B)", () => {
     expect(screen.getByRole("button", { name: "Replace" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Enter by hand" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Forget" })).toBeInTheDocument();
-
-    // Hide still collapses; Show reopens.
     await user.click(foldToggle);
     expect(foldToggle).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByRole("table", { name: /Size chart with ease/i })).toBeNull();
     await user.click(foldToggle);
     expect(foldToggle).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByRole("table", { name: /Size chart with ease/i })).toBeInTheDocument();
 
     const sizeName = [...document.querySelectorAll(".cz-chart-size-name")].find(
       (n) => /^L(arge)?$/i.test(n.textContent.trim()) || n.textContent.trim() === "L"
@@ -688,8 +693,11 @@ describe("DesktopDetailPanel (Fix B)", () => {
       (n) => n.style.left
     );
 
-    // Seller chart is open by default (Kyle 2026-08-02 item 4) — pick a size.
+    // The seller chart starts closed (2026-08-09, one-screen rule) — open it,
+    // then pick a size from it.
     const foldToggle = screen.getByRole("button", { name: /THE SELLER'S CHART/i });
+    expect(foldToggle).toHaveAttribute("aria-expanded", "false");
+    await user.click(foldToggle);
     expect(foldToggle).toHaveAttribute("aria-expanded", "true");
     const sizeRows = [...document.querySelectorAll("button.cz-chart-row.is-size")];
     expect(sizeRows.length).toBeGreaterThan(1);
