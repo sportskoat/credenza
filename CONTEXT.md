@@ -316,11 +316,16 @@ on first load; in-shelf switches never remount and stay instant.
   It's saved on this card for when you order.", and the two Settings
   chart-entry actions. Green only means money or a recommendation: the
   pinned line is green only for a chart-based pick (`.cz-your-size.is-rec`).
-  **Still open:** the accessories one-line treatment (category
-  accessory/bag) waits for Kyle to pick copy — do NOT build before he
-  picks; step 4 (photo fallback so a found chart photo always shows even
+  **Still open:** step 4 (photo fallback so a found chart photo always shows even
   when the parse fails); step 5 (cheap vision pre-check); step 6
-  (deferred items). The size does NOT go to the buying
+  (deferred items). Accessories shipped 2026-08-08 in commit `e72fd79`
+  (Kyle picked the words: "One size only. The photos show how big it
+  is."). Same commit: the pick screen's chips no longer re-window on
+  every tap (full sorted run; Kyle: "buttons shift around in weird
+  locations"), and a hand pick that is not the saved usual names the
+  usual in one gap-note line (Kyle: "measurements say 10, fit detail
+  clocks me as a 9"). Shoe pairing stays on the dress chart (+33) —
+  Kyle's call over the sneaker chart (+34). The size does NOT go to the buying
   agent; Kyle rejected clipboard and per-agent link ideas on 2026-08-08,
   so helper copy must never claim otherwise. Note the overlap with the
   contact-sheet and cache-miss entries below: those are pipeline-side
