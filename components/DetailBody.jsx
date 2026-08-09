@@ -848,11 +848,28 @@ function SizingBlock({
                   (read.isPick ? " is-rec" : "")
                 }
                 aria-pressed={isManual && picked}
+                // Both size labels are decoration (only one shows per screen),
+                // so the button names itself: "Medium, your fit".
+                aria-label={
+                  (formatSizeToken(read.size) || read.size) +
+                  ", " +
+                  word.toLowerCase()
+                }
                 // A tap always picks; clearing keeps its own doors (the Other
                 // box). See the legacy cells below for the ruling's history.
                 onClick={() => onPick && onPick(String(read.size))}
               >
-                <span className="cz-sizing-cell-k">{formatSizeToken(read.size) || read.size}</span>
+                {/* Two labels, one visible (2026-08-09 phone pass). The phone
+                    pane shows the short mark (S / M / L / XL / 2XL) because a
+                    graded chip runs four lines and "XX-LARGE" will not fit;
+                    the desktop keeps the full word. CSS picks; the aria-label
+                    carries the full word on both. */}
+                <span className="cz-sizing-cell-k" aria-hidden="true">
+                  {formatSizeToken(read.size) || read.size}
+                </span>
+                <span className="cz-sizing-cell-k is-short" aria-hidden="true">
+                  {compactSizeToken(read.size) || read.size}
+                </span>
                 <span className={"cz-sizing-cell-word" + tone}>{word}</span>
                 <span className="cz-sizing-cell-ease">
                   {read.label} {signed(read.ease)}

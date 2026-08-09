@@ -16220,6 +16220,12 @@ input.cz-sizing-cell.is-custom:focus-visible {
    chip grades itself — the verdict word under the size name, then the two
    ease lines. The word takes the tone: green on the recommendation, amber on
    TIGHT/BIG, red on TOO SMALL/TOO BIG, plain on LOOSE/ALSO FITS. */
+/* The short size mark rides along hidden; only the phone pane shows it
+   (2026-08-09 phone pass). One of the two always displays, never both. */
+.cz-sizing-cell-k.is-short {
+  display: none;
+}
+
 .cz-sizing-cell-word {
   font-family: var(--cz-mono);
   font-size: 8px;
@@ -17492,6 +17498,16 @@ input.cz-sizing-fix-size {
      the ease lines go ink — white-on-green is the desktop fill only. */
   .cz-detail-scroll.has-panes .cz-detail-pane-fit .cz-sizing-cell.has-reads {
     min-height: 84px;
+  }
+
+  /* The phone chip shows the short mark (S / M / L / XL / 2XL). A graded chip
+     runs four lines, and "XX-LARGE" does not fit a 76px card. */
+  .cz-detail-scroll.has-panes .cz-detail-pane-fit .cz-sizing-cell.has-reads .cz-sizing-cell-k:not(.is-short) {
+    display: none;
+  }
+
+  .cz-detail-scroll.has-panes .cz-detail-pane-fit .cz-sizing-cell.has-reads .cz-sizing-cell-k.is-short {
+    display: block;
   }
 
   .cz-detail-scroll.has-panes .cz-detail-pane-fit .cz-sizing-cell.is-rec .cz-sizing-cell-word.is-fit,

@@ -917,6 +917,22 @@ describe("fit-read number legibility (2026-08-08 redesign)", () => {
     expect(block[0]).toContain("white-space: nowrap");
   });
 
+  // 2026-08-09 phone pass: both size labels ride in the markup, and exactly
+  // one paints per screen. The short mark hides by default; the phone pane
+  // swaps them.
+  it("shows one size label per screen: full on desktop, short on the phone", () => {
+    const short = FIT_CSS.match(/\.cz-sizing-cell-k\.is-short\s*\{[^}]+\}/);
+    expect(short, "short size-mark rule missing").toBeTruthy();
+    expect(short[0]).toContain("display: none");
+    // Inside the phone pane the pair swaps.
+    expect(FIT_CSS).toMatch(
+      /\.cz-detail-pane-fit \.cz-sizing-cell\.has-reads \.cz-sizing-cell-k:not\(\.is-short\)\s*\{\s*display:\s*none;/
+    );
+    expect(FIT_CSS).toMatch(
+      /\.cz-detail-pane-fit \.cz-sizing-cell\.has-reads \.cz-sizing-cell-k\.is-short\s*\{\s*display:\s*block;/
+    );
+  });
+
   it("drops the old five-cell column grid everywhere", () => {
     const row = FIT_CSS.match(/\.cz-fitread-row\s*\{[^}]+\}/);
     expect(row, "fitread row rule missing").toBeTruthy();
