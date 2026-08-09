@@ -19,11 +19,13 @@ import { describe, expect, it } from "vitest";
 const {
   CHEST_EASE_BANDS,
   chestEaseBand,
+  computeOutcomeMaps,
   declaredFit,
   fitReadRows,
   garmentReasonLine,
   garmentTypeWord,
   garmentType,
+  outcomeShiftFor,
   parseSizeChart,
   recommendSize,
   shortsLengthNote,
@@ -495,5 +497,80 @@ describe("a near-tie between two sizes goes to the larger one", () => {
     );
     const rec = recommendSize({ ...chart }, { chest: 100, shoulder: 38 }, "shirt", null, null, "Cotton tee");
     expect(rec.size).toBe("M");
+  });
+});
+
+describe("delivery taps and seller run memory (debate stage 6)", () => {
+  const tee = (run, seller) => ({
+    title: "Cotton tee",
+    category: "shirt",
+    seller,
+    review: run ? { run } : undefined,
+  });
+
+  it("sums small and large taps into a kind shift, capped at ±3cm", () => {
+    // Four "ran small" tees would add +4, but the cap holds it at +3.
+    const capped = computeOutcomeMaps([tee("small"), tee("small"), tee("small"), tee("small")]);
+    expect(capped.kindShift.knit).toBe(3);
+    // +1 −1 −1 nets to −1.
+    const mixed = computeOutcomeMaps([tee("small"), tee("large"), tee("large")]);
+    expect(mixed.kindShift.knit).toBe(-1);
+  });
+
+  it("lets 'true' answers leave the kind shift alone", () => {
+    const maps = computeOutcomeMaps([tee("true"), tee("true")]);
+    expect(maps.kindShift.knit).toBeUndefined();
+  });
+
+  it("remembers how a seller runs, and the latest answer wins", () => {
+    const maps = computeOutcomeMaps([tee("small", "Shop A"), tee("large", "Shop A")]);
+    expect(maps.sellerRun["shop a"]).toBe("large");
+  });
+
+  it("clears the seller flag when the latest answer is 'true'", () => {
+    const maps = computeOutcomeMaps([tee("small", "Shop A"), tee("true", "Shop A")]);
+    expect(maps.sellerRun["shop a"]).toBeUndefined();
+  });
+
+  it("stacks the kind shift and the seller flag for one item", () => {
+    const maps = computeOutcomeMaps([tee("small"), tee("small", "Shop B")]);
+    // A new tee from Shop B: knit +2, seller +1 → +3.
+    expect(outcomeShiftFor({ title: "Cotton tee", category: "shirt", seller: "Shop B" }, maps)).toBe(3);
+    // A coat from Shop B: no coat taps yet, seller +1 → +1.
+    expect(outcomeShiftFor({ title: "Wool coat", category: "outerwear", seller: "Shop B" }, maps)).toBe(1);
+    // No maps, no shift.
+    expect(outcomeShiftFor({ title: "Cotton tee", category: "shirt" }, null)).toBe(0);
+  });
+
+  it("never moves a kind that has no band (pants keep the seller flag only)", () => {
+    const maps = computeOutcomeMaps([
+      { title: "Cargo pants", category: "pants", seller: "Shop C", review: { run: "small" } },
+    ]);
+    expect(maps.kindShift.pants).toBeUndefined();
+    expect(maps.sellerRun["shop c"]).toBe("small");
+    expect(outcomeShiftFor({ title: "Cargo pants", category: "pants", seller: "Shop C" }, maps)).toBe(1);
+  });
+
+  it("moves the pick one size up when the customer's taps say this kind runs small", () => {
+    // Knit band 5–10, body 100. The M (ease 6) sits inside the band and beats
+    // the L (ease 11, 1cm outside). With +3cm of learned shift the M reads as
+    // ease 3 (2cm short) and the L reads as ease 8 (dead centre) — the L wins.
+    const chart = chartOf("M: chest 106, length 70\nL: chest 111, length 72");
+    const body = { chest: 100 };
+    const plain = recommendSize(chart, body, "shirt", null, null, "Cotton tee");
+    expect(plain.size).toBe("M");
+    expect(plain.outcomeShift).toBeNull();
+    const shifted = recommendSize(chart, body, "shirt", null, null, "Cotton tee", null, 3);
+    expect(shifted.size).toBe("L");
+    expect(shifted.outcomeShift).toBe(3);
+  });
+
+  it("aims smaller when the taps say this kind runs large", () => {
+    // Same chart, −3cm: the M reads as ease 9 (inside), the L as ease 14
+    // (4cm past the band) — the M keeps the pick and records the shift.
+    const chart = chartOf("M: chest 106, length 70\nL: chest 111, length 72");
+    const rec = recommendSize(chart, { chest: 100 }, "shirt", null, null, "Cotton tee", null, -3);
+    expect(rec.size).toBe("M");
+    expect(rec.outcomeShift).toBe(-3);
   });
 });

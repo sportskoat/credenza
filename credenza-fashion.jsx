@@ -1581,7 +1581,8 @@ export function recommendSize(
   fitPref = null,
   forceSize = null,
   title = null,
-  notesText = null
+  notesText = null,
+  extraShiftCm = 0
 ) {
   if (!chart || !Array.isArray(chart.rows) || chart.rows.length < 2) return null;
   const p = migrateSleeveMeasurements(profile) || {};
@@ -1670,7 +1671,11 @@ export function recommendSize(
   }
 
   // Garment runs big → the label understates it → aim smaller, and vice versa.
-  const runShift = chart.runHint === "big" ? -4 : chart.runHint === "small" ? 4 : 0;
+  // Stage 6 (four-lane debate 2026-08-08): extraShiftCm stacks the customer's
+  // own delivery taps and seller run memory on top of the chart's hint. Same
+  // sign convention: positive aims bigger.
+  const safeExtra = isFinite(Number(extraShiftCm)) ? Number(extraShiftCm) : 0;
+  const runShift = (chart.runHint === "big" ? -4 : chart.runHint === "small" ? 4 : 0) + safeExtra;
   const target = p[bodyKey] + ease + runShift;
 
   const candidates = rows.filter((r) => r[primaryKey] != null);
@@ -1989,6 +1994,10 @@ export function recommendSize(
     // Stage 5: set when a taped loved jacket moved the grading. The reason
     // line and the panel need to say the pick leaned on it.
     lovedJacket: lovedChest != null || lovedShoulder != null ? true : null,
+    // Stage 6: the centimetres the customer's own delivery taps and seller
+    // run memory added to the run shift, or null when nobody reported yet.
+    // Recorded so a later copy pass can say "adjusted from your reviews".
+    outcomeShift: safeExtra !== 0 ? safeExtra : null,
   };
   // Optional 4th arg: per-category taste (length + looseness). Looseness can
   // nudge one size up/down; the length axis moves the target length above.
@@ -5862,7 +5871,78 @@ export function effectiveBodyProfile(profile) {
   return out;
 }
 
-export function computeRecommendedSize(item, bodyProfile, fitPrefs = null) {
+// ── Stage 6: delivery taps + seller run memory (four-lane debate 2026-08-08) ──
+//
+// The haul review sheet already asks "How did it run?" on every delivered
+// item (item.review.run: "small" | "true" | "large"). Stage 6 spends those
+// answers twice:
+//
+//   1. Kind memory. Each "small" adds +1cm to that garment kind's aim, each
+//      "large" subtracts 1cm, capped at ±3cm. Only band kinds learn — the
+//      shift moves a band, and bottoms have no band to move.
+//   2. Seller memory. The LATEST answer from a seller names how that seller
+//      runs: "small" or "large" is worth ±1cm, and "true" clears the flag.
+//
+// Both maps are REBUILT from the item list on every read. Nothing accumulates
+// per tap, so a changed answer can never double-count and a deleted item
+// takes its lesson with it. Positive always means "aim bigger", the same
+// sign convention as the chart's own run hint.
+const OUTCOME_TAP_CM = 1;
+const OUTCOME_KIND_CAP_CM = 3;
+const SELLER_RUN_CM = 1;
+const OUTCOME_SHIFT_KINDS = new Set(["coat", "blazer", "knit", "woven", "compression"]);
+
+function reviewRunOf(item) {
+  const run = item && item.review && item.review.run;
+  return run === "small" || run === "true" || run === "large" ? run : null;
+}
+
+function sellerKeyOf(item) {
+  if (!item) return "";
+  const fromChart = item.sizeChartSource && item.sizeChartSource.seller;
+  return String(fromChart || item.seller || "").trim().toLowerCase();
+}
+
+export function computeOutcomeMaps(items) {
+  const kindShift = {};
+  const sellerRun = {};
+  for (const item of Array.isArray(items) ? items : []) {
+    const run = reviewRunOf(item);
+    if (!run) continue;
+    const kind = garmentType(item.title, null, item.category);
+    if (OUTCOME_SHIFT_KINDS.has(kind)) {
+      const delta = run === "small" ? OUTCOME_TAP_CM : run === "large" ? -OUTCOME_TAP_CM : 0;
+      if (delta !== 0) {
+        const next = (kindShift[kind] || 0) + delta;
+        kindShift[kind] = Math.max(-OUTCOME_KIND_CAP_CM, Math.min(OUTCOME_KIND_CAP_CM, next));
+      }
+    }
+    const seller = sellerKeyOf(item);
+    // The list order is the delivery order, so a later answer overwrites an
+    // earlier one — the newest report is the one the seller earned.
+    if (seller) {
+      if (run === "true") delete sellerRun[seller];
+      else sellerRun[seller] = run;
+    }
+  }
+  return { kindShift, sellerRun };
+}
+
+export function outcomeShiftFor(item, maps) {
+  if (!item || !maps) return 0;
+  const kind = garmentType(item.title, null, item.category);
+  const kindCm = OUTCOME_SHIFT_KINDS.has(kind) && maps.kindShift ? maps.kindShift[kind] || 0 : 0;
+  const seller = sellerKeyOf(item);
+  const sellerCm =
+    seller && maps.sellerRun && maps.sellerRun[seller] === "small"
+      ? SELLER_RUN_CM
+      : seller && maps.sellerRun && maps.sellerRun[seller] === "large"
+        ? -SELLER_RUN_CM
+        : 0;
+  return kindCm + sellerCm;
+}
+
+export function computeRecommendedSize(item, bodyProfile, fitPrefs = null, outcomeMaps = null) {
   if (!item || !bodyProfile) return null;
   if (SIZE_PICK_SKIP_CATEGORIES.has(item.category)) return null;
   // AI size only when a real chart parses. A stale recommendedSize without
@@ -5881,7 +5961,8 @@ export function computeRecommendedSize(item, bodyProfile, fitPrefs = null) {
     catPref,
     null,
     item.title,
-    elasticEvidenceTextFor(item)
+    elasticEvidenceTextFor(item),
+    outcomeShiftFor(item, outcomeMaps)
   );
   return rec && rec.size ? String(rec.size).trim() : null;
 }
@@ -5915,11 +5996,11 @@ export function usualSizeForItem(item, bodyProfile) {
 // "(EST)" is retired: it read like an estimated price. Returns { label,
 // value, kind } plus the legacy fields (text, isRec, isEstimate, size, rec)
 // that DetailBody and the frozen carousel front still read.
-export function resolveDisplaySize(item, bodyProfile, fitPrefs = null) {
+export function resolveDisplaySize(item, bodyProfile, fitPrefs = null, outcomeMaps = null) {
   const NONE = { text: "", isRec: false, label: "", value: "", kind: "none" };
   if (!item) return NONE;
   const chosen = String(item.size || "").trim();
-  const rec = computeRecommendedSize(item, bodyProfile, fitPrefs);
+  const rec = computeRecommendedSize(item, bodyProfile, fitPrefs, outcomeMaps);
   if (!chosen && !rec) {
     // Part 5 task 11: slot-specific usual sizes (usualSizeForItem).
     const usual = usualSizeForItem(item, bodyProfile);
@@ -10501,7 +10582,10 @@ function CredenzaApp() {
         },
         fitFor: (item) => {
           const chart = parseSizeChart(sizeChartTextFor(item));
-          const recommended = computeRecommendedSize(item, bodyProfile, fitPrefs);
+          // Stage 6: the shared card reads the same shifted pick the detail
+          // panel shows. The maps come from the whole shelf — a kind's memory
+          // accumulates across every delivered item of that kind.
+          const recommended = computeRecommendedSize(item, bodyProfile, fitPrefs, computeOutcomeMaps(items));
           return buildSharedFit({
             category: item.category,
             sizeBought: item.size,
@@ -10528,6 +10612,7 @@ function CredenzaApp() {
       preferredAgentInfo,
       bodyProfile,
       fitPrefs,
+      items,
     ]
   );
 

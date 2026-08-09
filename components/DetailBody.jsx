@@ -10,6 +10,7 @@ import {
   buildEditDraft,
   buildEditPatch,
   CATEGORIES,
+  computeOutcomeMaps,
   computeRecommendedSize,
   effectiveBodyProfile,
   fetchChartFromPhotos,
@@ -50,6 +51,7 @@ import {
   linkButtons,
   measureFromStorage,
   measureToStorage,
+  outcomeShiftFor,
   parseSizeChart,
   prescriptionSentence,
   easeRoomClause,
@@ -342,7 +344,8 @@ function useSizeVerdict(
   units,
   detailOverride = null,
   summaryOverride = null,
-  chosenSize = ""
+  chosenSize = "",
+  outcomeShift = 0
 ) {
   const chart = useMemo(() => parseSizeChart(sizeChartTextFor(item)), [item]);
   // Height+weight estimates fill the tape-measure gaps — flagged estimated
@@ -350,7 +353,7 @@ function useSizeVerdict(
   const profile = useMemo(() => effectiveBodyProfile(bodyProfile), [bodyProfile]);
   const rec =
     chart && profile
-      ? recommendSize(chart, profile, item.category, fitPref, null, item.title, elasticEvidenceTextFor(item))
+      ? recommendSize(chart, profile, item.category, fitPref, null, item.title, elasticEvidenceTextFor(item), outcomeShift)
       : null;
   const recSize = rec && rec.size ? rec.size : null;
   // `rec` is the advice; `shown` is what every printed number describes. They
@@ -3682,6 +3685,11 @@ export default function DetailBody({
 
   // The parent owns the sizing verdict and the chart hunt.
   const fitPref = fitPrefs && item.category ? fitPrefs[item.category] || null : null;
+  // Stage 6 (debate 2026-08-08): the shelf's own "How did it run?" answers
+  // rebuild the kind and seller shift maps on every render. No new props —
+  // shelfItems already carries the whole list to both parents.
+  const outcomeMaps = useMemo(() => computeOutcomeMaps(shelfItems), [shelfItems]);
+  const outcomeShift = outcomeShiftFor(item, outcomeMaps);
   // Read the tapped size before the verdict: the verdict prints that row's
   // measurements, so it has to know the tap. `view` is settled well above.
   const chosenSize = String(view.size || "").trim();
@@ -3692,7 +3700,8 @@ export default function DetailBody({
     measureUnits,
     fitDetail,
     fitSummary,
-    chosenSize
+    chosenSize,
+    outcomeShift
   );
   // Round 5 point 5.1 (2026-07-29): the chart cells ARE the size picker.
   // Computed here so SizingBlock draws them and SizeChoiceEditor knows its
@@ -3883,7 +3892,7 @@ export default function DetailBody({
     chartPhotoUrlRef.current = "";
   }, []);
 
-  const recSize = computeRecommendedSize(item, bodyProfile, fitPrefs);
+  const recSize = computeRecommendedSize(item, bodyProfile, fitPrefs, outcomeMaps);
   useEffect(() => {
     setCustomSize(chosenSize);
     customSizeCommittedRef.current = chosenSize;
@@ -3896,7 +3905,7 @@ export default function DetailBody({
           // No chart, no rec: the usual-size fallback the card face shows as
           // YOUR USUAL (handoff turn 3 §4 — "(EST)" is retired; the label
           // says who decided, and the breakdown one tap away explains it).
-          const d = resolveDisplaySize(item, bodyProfile, fitPrefs);
+          const d = resolveDisplaySize(item, bodyProfile, fitPrefs, outcomeMaps);
           if (d.isEstimate && d.size) return d.value || formatSizeToken(d.size) || d.size;
           // Listing Size axis when nothing else — show S–XL, never invent a pick.
           return pickSizeRunFromVariants(item.variants) || "";

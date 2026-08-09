@@ -1,4 +1,5 @@
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
+import { computeOutcomeMaps } from "../credenza-fashion.jsx";
 import { CoverImage } from "./CardCover.jsx";
 import CardFrontText from "./CardFrontText.jsx";
 import FavoriteButton from "./FavoriteButton.jsx";
@@ -13,6 +14,9 @@ export default function PhotoShelfList({
   fitPrefs = null,
   phone = false,
 }) {
+  // Stage 6 (debate 2026-08-08): the shelf's "How did it run?" answers shift
+  // the pick, so the grid chip reads the same size the detail panel shows.
+  const outcomeMaps = useMemo(() => computeOutcomeMaps(items), [items]);
   return (
     <div className="cz-photo-list" role="list">
       {items.map((item) => (
@@ -25,6 +29,7 @@ export default function PhotoShelfList({
           bodyProfile={bodyProfile}
           fitPrefs={fitPrefs}
           phone={phone}
+          outcomeMaps={outcomeMaps}
         />
       ))}
     </div>
@@ -48,7 +53,7 @@ export default function PhotoShelfList({
 // open button, never a child — the card face is one <button> and a nested
 // <a> is invalid HTML. It sits in an overlay block above the button in the
 // stacking order and re-enables pointer events on the links only.
-function PhotoShelfCard({ item, selected, onOpenDetail, onToggleFavorite, bodyProfile, fitPrefs, phone }) {
+function PhotoShelfCard({ item, selected, onOpenDetail, onToggleFavorite, bodyProfile, fitPrefs, phone, outcomeMaps }) {
   const photoRef = useRef(null);
   const textRef = useRef(null);
   const title = item.title || "Untitled item";
@@ -94,6 +99,7 @@ function PhotoShelfCard({ item, selected, onOpenDetail, onToggleFavorite, bodyPr
         bodyProfile={bodyProfile}
         fitPrefs={fitPrefs}
         textRef={textRef}
+        outcomeMaps={outcomeMaps}
       />
     </article>
   );

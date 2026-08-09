@@ -21,9 +21,13 @@ export default function CardFrontText({
   linkSeller = true,
   variant = "grid",
   textRef = null,
+  // Stage 6 (debate 2026-08-08): the grid passes the shelf's outcome maps so
+  // the chip matches the shifted pick the detail panel shows. The frozen
+  // carousel front omits it and keeps the unshifted read.
+  outcomeMaps = null,
 }) {
   const price = priceLabelShort(item);
-  const size = resolveDisplaySize(item, bodyProfile, fitPrefs);
+  const size = resolveDisplaySize(item, bodyProfile, fitPrefs, outcomeMaps);
   const album = albumLinkTarget(item, { tight: true });
   const ref = itemRefCode(item);
   const photoCount = albumPhotoCount(item);
