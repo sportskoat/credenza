@@ -211,6 +211,36 @@ function fallbackReferer(imageUrls) {
   return null;
 }
 
+// Claude vision accepts these four types only. avif is a browser type — the
+// reader cannot use it, so we never ask a CDN for it.
+const CLAUDE_IMAGE_TYPES = /^image\/(jpeg|png|webp|gif)$/;
+
+// The label the host sent, when Claude can read that type. `image/jpg` is the
+// same file as jpeg. Anything else (octet-stream, empty, avif) is not a label
+// we can send, so the caller must read the bytes.
+function declaredClaudeType(raw) {
+  const t = String(raw || "")
+    .split(";")[0]
+    .trim()
+    .toLowerCase();
+  if (t === "image/jpg") return "image/jpeg";
+  return CLAUDE_IMAGE_TYPES.test(t) ? t : null;
+}
+
+// Same byte check as preview.js / share-image.js. Yupoo and Weidian often
+// send a real JPEG as application/octet-stream. Trusting only the label
+// dropped those photos and answered 502 on a signed-in chart read.
+function sniffClaudeType(buf) {
+  if (!buf || buf.length < 12) return null;
+  if (buf[0] === 0xff && buf[1] === 0xd8) return "image/jpeg";
+  if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) return "image/png";
+  if (buf.slice(0, 4).toString("ascii") === "RIFF" && buf.slice(8, 12).toString("ascii") === "WEBP") {
+    return "image/webp";
+  }
+  if (buf.slice(0, 3).toString("ascii") === "GIF") return "image/gif";
+  return null;
+}
+
 // Returns { base64, mediaType } or null. Every hop of every fetch is
 // re-validated against the CDN allowlist + private-address rejection.
 // Failures must console.error — a silent null is how the 502 storm of
@@ -220,17 +250,12 @@ async function fetchImage(url, referer, signal) {
   try {
     const headers = {
       "user-agent": UA,
-      accept: "image/avif,image/webp,image/png,image/jpeg,image/*;q=0.8",
+      accept: "image/jpeg,image/png,image/webp,image/gif,image/*;q=0.8",
     };
     if (referer) headers.referer = referer;
     const res = await safeFetch(url, { headers, signal, hosts: ALLOWED_IMAGE_HOST, maxRedirects: 3 });
     if (!res.ok) {
       console.error("[chart-vision] fetchImage non-ok", { host, status: res.status, name: "HttpError" });
-      return null;
-    }
-    const mediaType = (res.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
-    if (!/^image\/(jpeg|png|webp|gif)$/.test(mediaType)) {
-      console.error("[chart-vision] fetchImage bad content-type", { host, mediaType, name: "BadContentType" });
       return null;
     }
     const buf = await res.arrayBuffer();
@@ -242,7 +267,14 @@ async function fetchImage(url, referer, signal) {
       });
       return null;
     }
-    return { base64: Buffer.from(buf).toString("base64"), mediaType };
+    const bytes = Buffer.from(buf);
+    const declared = (res.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
+    const mediaType = declaredClaudeType(declared) || sniffClaudeType(bytes);
+    if (!mediaType) {
+      console.error("[chart-vision] fetchImage bad content-type", { host, mediaType: declared, name: "BadContentType" });
+      return null;
+    }
+    return { base64: bytes.toString("base64"), mediaType };
   } catch (e) {
     // safeFetch throws plain { status, msg } objects, not Error instances.
     const name = (e && e.name) || (e && e.msg) || "FetchError";

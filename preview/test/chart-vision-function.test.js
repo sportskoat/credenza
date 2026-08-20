@@ -106,6 +106,75 @@ describe("chart-vision function", () => {
     expect(body.diag).toMatchObject({ stage: "fetch" });
   });
 
+  // A one-pixel JPEG. The SOI marker is what the byte check reads, and the
+  // length must clear the 12-byte floor. Same fixture as share-image.test.js.
+  const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 16, 0x4a, 0x46, 0x49, 0x46, 0, 1]);
+
+  function photoReply(contentType, body = JPEG) {
+    return {
+      ok: true,
+      headers: { get: () => contentType },
+      arrayBuffer: async () => body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength),
+    };
+  }
+
+  it("reads a real JPEG when the host labels it octet-stream", async () => {
+    // Yupoo and Weidian do this. The old label-only check dropped the photo
+    // and answered 502 after sign-in, so Fit said there was no chart.
+    let sentMedia = null;
+    global.fetch = vi.fn(async (url, opts) => {
+      if (url === IMG) return photoReply("application/octet-stream");
+      const sent = JSON.parse(opts.body);
+      sentMedia = sent.messages[0].content[0].source.media_type;
+      return anthropicOk({ found: true, chartText: "M 胸围112 衣长70\nL 胸围116 衣长72", note: "" });
+    });
+    const res = await handler(post());
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body).found).toBe(true);
+    expect(sentMedia).toBe("image/jpeg");
+  });
+
+  it("treats image/jpg as jpeg, and sniffs when the host sends no type", async () => {
+    global.fetch = vi.fn(async (url) => {
+      if (url === IMG) return photoReply("image/jpg");
+      return anthropicOk({ found: true, chartText: "M 胸围112\nL 胸围116", note: "" });
+    });
+    expect((await handler(post())).statusCode).toBe(200);
+
+    global.fetch = vi.fn(async (url) => {
+      if (url === IMG) return photoReply("");
+      return anthropicOk({ found: true, chartText: "M 胸围112\nL 胸围116", note: "" });
+    });
+    expect((await handler(post())).statusCode).toBe(200);
+  });
+
+  it("still 502s when the body is not a photo Claude can read", async () => {
+    global.fetch = vi.fn(async (url) => {
+      if (url === IMG) return photoReply("application/octet-stream", Buffer.from("<html>not a photo</html>"));
+      return anthropicOk({ found: false, chartText: "" });
+    });
+    const res = await handler(post());
+    expect(res.statusCode).toBe(502);
+    expect(JSON.parse(res.body).diag).toMatchObject({ stage: "fetch" });
+  });
+
+  it("asks the photo host for jpeg, not avif", async () => {
+    // Claude cannot read avif. Asking for it first made hosts send a type
+    // the reader then threw away.
+    let photoHeaders = null;
+    global.fetch = vi.fn(async (url, opts) => {
+      if (url === IMG) {
+        photoHeaders = (opts && opts.headers) || {};
+        return photoReply("image/jpeg");
+      }
+      return anthropicOk({ found: false, chartText: "" });
+    });
+    const res = await handler(post());
+    expect(res.statusCode).toBe(200);
+    expect(photoHeaders.accept).toMatch(/image\/jpeg/);
+    expect(photoHeaders.accept).not.toMatch(/image\/avif/);
+  });
+
   it("sends the album page as referer when the client provides one", async () => {
     // The yupoo photo CDN 567-blocks requests whose referer is not an album
     // page — this header is what makes the whole function work live.
