@@ -63,8 +63,8 @@ describe("computeRecommendedSize after a body change", () => {
     sizeNotes: chartText,
     recommendedSize: "XXL",
   };
-  const oldChest = { chest: 121.4, height: 180, weight: 90 };
-  const newChest = { chest: 104.1, height: 180, weight: 75 };
+  const oldChest = { chest: 121.4 };
+  const newChest = { chest: 104.1 };
 
   it("redoes the chart math from the new body, not the stored letter", () => {
     const liveFromOld = computeRecommendedSize({ ...hoodie, recommendedSize: "" }, oldChest);
