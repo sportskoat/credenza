@@ -7632,6 +7632,7 @@ function CredenzaApp() {
   // always cm/kg — measureUnits only controls display/input (default "in",
   // US). Charts are metric; conversion happens at the edges.
   const [bodyProfile, setBodyProfile] = useState(null);
+  const [bodyUpdatedAt, setBodyUpdatedAt] = useState(0);
   const [measureUnits, setMeasureUnits] = useState("in");
   // Mobile detail sheet (handoff step 5). On a phone a card tap opens this
   // instead of the carousel overlay; desktop keeps the carousel unchanged.
@@ -7644,6 +7645,7 @@ function CredenzaApp() {
   // Per-category Length/Looseness taste (design turn 5). Shape:
   // { [category]: { length, looseness, dismissed } }. Persisted in prefs.
   const [fitPrefs, setFitPrefsByCat] = useState({});
+  const [fitPrefsUpdatedAt, setFitPrefsUpdatedAt] = useState(0);
   const saveFitPref = (category, pref) => {
     if (!category) return;
     setFitPrefsByCat((prev) => ({
@@ -7654,6 +7656,15 @@ function CredenzaApp() {
         dismissed: !!(pref && pref.dismissed),
       },
     }));
+    setFitPrefsUpdatedAt(Date.now());
+  };
+  const writeBodyProfile = (profile) => {
+    setBodyProfile((prev) => (typeof profile === "function" ? profile(prev) : profile));
+    setBodyUpdatedAt(Date.now());
+  };
+  const writeFitPrefs = (draft) => {
+    setFitPrefsByCat((prev) => ({ ...(prev || {}), ...(draft || {}) }));
+    setFitPrefsUpdatedAt(Date.now());
   };
   const ownedFitPrefCategories = useMemo(() => {
     const set = new Set();
@@ -7874,9 +7885,24 @@ function CredenzaApp() {
   // A free account still gets ONE push after a pull, so the merged result is
   // saved rather than dropped. Otherwise the first sign-in on a second device
   // would show the merge and then quietly forget it.
-  const shelfStateRef = useRef({ items: [], tombstones: {} });
-  shelfStateRef.current = { items, tombstones };
+  const shelfStateRef = useRef({
+    items: [],
+    tombstones: {},
+    bodyProfile: null,
+    fitPrefs: {},
+    bodyUpdatedAt: 0,
+    fitPrefsUpdatedAt: 0,
+  });
+  shelfStateRef.current = {
+    items,
+    tombstones,
+    bodyProfile,
+    fitPrefs,
+    bodyUpdatedAt,
+    fitPrefsUpdatedAt,
+  };
   const syncedOnceRef = useRef(false);
+  const pullDoneRef = useRef(false);
   const pusherRef = useRef(null);
   const signedIn = SYNC_READY && !!accountSession;
   // CH-03: the avatar shows initials when signed in. The account has no name
@@ -7894,11 +7920,12 @@ function CredenzaApp() {
     pusherRef.current = createShelfPusher({ getState: () => shelfStateRef.current });
   }
 
-  // Pull on sign-in, exactly once per session. The shelf on screen is already
-  // hydrated from localStorage by now, which is the point: the user never
-  // waits on the network to see their own cards.
+  // Pull on sign-in, exactly once per session. Wait for local prefs so an
+  // empty first paint cannot wipe a filled account body. The shelf on screen
+  // is already hydrated from localStorage by then — the user never waits on
+  // the network to see their own cards.
   useEffect(() => {
-    if (!signedIn || !canPersist || syncedOnceRef.current) return;
+    if (!signedIn || !canPersist || !preferencesHydrated || syncedOnceRef.current) return;
     syncedOnceRef.current = true;
     let cancelled = false;
     (async () => {
@@ -7906,7 +7933,10 @@ function CredenzaApp() {
       if (cancelled) return;
       // "invalid" and "error" both mean: keep local, touch nothing. Only a
       // document we could actually read is allowed to change the shelf.
-      if (remote.status !== "ok" && remote.status !== "empty") return;
+      if (remote.status !== "ok" && remote.status !== "empty") {
+        pullDoneRef.current = true;
+        return;
+      }
       const local = shelfStateRef.current;
       const merged = mergeShelves(local, remote.status === "ok" ? remote.doc : null, {
         now: Date.now(),
@@ -7922,9 +7952,23 @@ function CredenzaApp() {
           );
         }
       }
+      // Reload the account body onto Fit cards. A Settings save of 41 must
+      // replace a stale YOURS number, and a new browser must show the login.
+      setBodyProfile(merged.bodyProfile ? migrateSleeveMeasurements(merged.bodyProfile) : null);
+      setFitPrefsByCat(merged.fitPrefs && typeof merged.fitPrefs === "object" ? merged.fitPrefs : {});
+      setBodyUpdatedAt(merged.bodyUpdatedAt || 0);
+      setFitPrefsUpdatedAt(merged.fitPrefsUpdatedAt || 0);
+      shelfStateRef.current = {
+        items: merged.items,
+        tombstones: merged.tombstones,
+        bodyProfile: merged.bodyProfile,
+        fitPrefs: merged.fitPrefs,
+        bodyUpdatedAt: merged.bodyUpdatedAt,
+        fitPrefsUpdatedAt: merged.fitPrefsUpdatedAt,
+      };
+      pullDoneRef.current = true;
       // Save the merge back, free plan included — see the note above.
       if (merged.changedRemote || remote.status === "empty") {
-        shelfStateRef.current = { items: merged.items, tombstones: merged.tombstones };
         pusherRef.current?.flush();
       }
     })();
@@ -7932,15 +7976,22 @@ function CredenzaApp() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [signedIn, canPersist]);
+  }, [signedIn, canPersist, preferencesHydrated]);
 
   // Continuous push: Pro only, debounced, and only after the pull has run —
   // pushing before the merge would overwrite the account with this device's
   // shelf, which is the exact accident tombstones exist to prevent.
   useEffect(() => {
-    if (!signedIn || !isProPlan || !canPersist || !syncedOnceRef.current) return;
+    if (!signedIn || !isProPlan || !canPersist || !pullDoneRef.current) return;
     pusherRef.current?.schedule();
   }, [signedIn, isProPlan, canPersist, items, tombstones]);
+
+  // Body and shirt-wear defaults follow the login for any signed-in account.
+  // A save after sign-in must keep and push, or a new browser never sees it.
+  useEffect(() => {
+    if (!signedIn || !canPersist || !pullDoneRef.current) return;
+    pusherRef.current?.schedule();
+  }, [signedIn, canPersist, bodyProfile, fitPrefs, bodyUpdatedAt, fitPrefsUpdatedAt]);
 
   // A tab closing is the last chance to save. visibilitychange fires on phone
   // app-switch where unload does not, so it is the one that matters.
@@ -7967,16 +8018,18 @@ function CredenzaApp() {
             preferredAgent,
             agentToastSeenFor,
             bodyProfile,
+            bodyUpdatedAt,
             measureUnits,
             pricePrimary,
             fitSummary,
             fitDetail,
             onboardingDone,
             fitPrefs,
+            fitPrefsUpdatedAt,
           })
         )
         .catch(() => {});
-  }, [preferencesHydrated, storageState.status, viewMode, sortMode, shelfFilter, preferredAgent, agentToastSeenFor, bodyProfile, measureUnits, pricePrimary, fitSummary, fitDetail, onboardingDone, fitPrefs]);
+  }, [preferencesHydrated, storageState.status, viewMode, sortMode, shelfFilter, preferredAgent, agentToastSeenFor, bodyProfile, bodyUpdatedAt, measureUnits, pricePrimary, fitSummary, fitDetail, onboardingDone, fitPrefs, fitPrefsUpdatedAt]);
 
   // Onboarding 3B: focus the hero paste field on a desktop cold open, so ⌘V
   // works with no click first. Guarded three ways — desktop width only, the
@@ -8152,12 +8205,14 @@ function CredenzaApp() {
                   preferredAgent: validStoredAgentId(p.preferredAgent),
                   agentToastSeenFor: p.agentToastSeenFor || null,
                   bodyProfile: p.bodyProfile && typeof p.bodyProfile === "object" ? p.bodyProfile : null,
+                  bodyUpdatedAt: Number(p.bodyUpdatedAt) || 0,
                   measureUnits: p.measureUnits === "cm" ? "cm" : "in",
                   pricePrimary: normalizePricePrimary(p.pricePrimary),
                   fitSummary: p.fitSummary !== false,
                   fitDetail: p.fitDetail === "detailed" ? "detailed" : "concise",
                   onboardingDone: p.onboardingDone !== false,
                   fitPrefs: p.fitPrefs && typeof p.fitPrefs === "object" ? p.fitPrefs : {},
+                  fitPrefsUpdatedAt: Number(p.fitPrefsUpdatedAt) || 0,
                 })
               )
               .catch(() => {});
@@ -8171,11 +8226,13 @@ function CredenzaApp() {
           if (p.bodyProfile && typeof p.bodyProfile === "object") {
             setBodyProfile(migrateSleeveMeasurements(p.bodyProfile));
           }
+          if (Number(p.bodyUpdatedAt) > 0) setBodyUpdatedAt(Number(p.bodyUpdatedAt));
           if (p.measureUnits === "cm" || p.measureUnits === "in") setMeasureUnits(p.measureUnits);
           if (p.pricePrimary) setPricePrimary(normalizePricePrimary(p.pricePrimary));
           if (p.fitSummary === false) setFitSummary(false);
           if (p.fitDetail === "concise" || p.fitDetail === "detailed") setFitDetail(p.fitDetail);
           if (p.fitPrefs && typeof p.fitPrefs === "object") setFitPrefsByCat(p.fitPrefs);
+          if (Number(p.fitPrefsUpdatedAt) > 0) setFitPrefsUpdatedAt(Number(p.fitPrefsUpdatedAt));
           // Only brand-new prefs (no prior onboardingDone key) count as a
           // first run. That no longer gates a screen — it gates the one-time
           // hint on the first card. Existing users never see it.
@@ -11622,7 +11679,7 @@ function CredenzaApp() {
       bodyProfile={bodyProfile}
       measureUnits={measureUnits}
       onSaveBodyProfile={(profile) => {
-        setBodyProfile((prev) => ({ ...(prev || {}), ...profile }));
+        writeBodyProfile((prev) => ({ ...(prev || {}), ...profile }));
         setFitPromptSkipped(false);
         notify("Sizes updated.");
       }}
@@ -11688,7 +11745,7 @@ function CredenzaApp() {
           : null
       }
       onSaveBodyProfile={(profile) => {
-        setBodyProfile((prev) => ({ ...(prev || {}), ...profile }));
+        writeBodyProfile((prev) => ({ ...(prev || {}), ...profile }));
         setFitPromptSkipped(false);
         notify("Sizes updated.");
       }}
@@ -12455,14 +12512,14 @@ function CredenzaApp() {
             bodyProfile,
             measureUnits,
             onSaveBodyProfile: (profile) => {
-              setBodyProfile(profile);
+              writeBodyProfile(profile);
               notify("Sizes updated.");
             },
             onChangeUnits: setMeasureUnits,
             fitPrefs,
             ownedFitPrefCategories,
             onSaveFitPrefs: (draft) => {
-              setFitPrefsByCat((prev) => ({ ...(prev || {}), ...(draft || {}) }));
+              writeFitPrefs(draft);
               notify("Fit preferences updated.");
             },
             // Shelf defaults (design 1e, rows made live per Kyle 2026-07-28):
@@ -12529,7 +12586,7 @@ function CredenzaApp() {
           bodyProfile={bodyProfile}
           fitPrefs={fitPrefs}
           onSaveBodyProfile={(profile) => {
-            setBodyProfile((prev) => ({ ...(prev || {}), ...profile }));
+            writeBodyProfile((prev) => ({ ...(prev || {}), ...profile }));
             setFitPromptSkipped(false);
             notify("Sizes updated.");
           }}

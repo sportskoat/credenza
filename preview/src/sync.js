@@ -201,8 +201,10 @@ export async function deleteRemoteShelf(options = {}) {
 // Collapses a burst of edits into one write, and flushes on demand so the tab
 // closing does not eat the last change.
 //
-// `getState()` returns { items, tombstones } — a function, not a value, so the
-// pusher always reads the newest shelf rather than one captured at setup.
+// `getState()` returns { items, tombstones, bodyProfile, fitPrefs, … } —
+// a function, not a value, so the pusher always reads the newest shelf
+// rather than one captured at setup. Body and shirt-wear defaults ride
+// with the cards so a later items-only write does not drop them.
 export function createShelfPusher({ getState, delay = PUSH_DEBOUNCE_MS, ...options } = {}) {
   let timer = null;
   let inFlight = null;
@@ -211,7 +213,12 @@ export function createShelfPusher({ getState, delay = PUSH_DEBOUNCE_MS, ...optio
   async function send() {
     const state = getState ? getState() : null;
     if (!state) return { status: "signed-out" };
-    const doc = toShelfDoc(state.items || [], state.tombstones || {}, options.now || Date.now());
+    const doc = toShelfDoc(state.items || [], state.tombstones || {}, options.now || Date.now(), {
+      bodyProfile: state.bodyProfile,
+      fitPrefs: state.fitPrefs,
+      bodyUpdatedAt: state.bodyUpdatedAt,
+      fitPrefsUpdatedAt: state.fitPrefsUpdatedAt,
+    });
     return pushShelf(doc, options);
   }
 

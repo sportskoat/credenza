@@ -209,13 +209,41 @@ export function mergeShelves(local, remote, options = {}) {
   const localIds = new Set(localItems.filter((x) => x && x.id).map((x) => String(x.id)));
   const added = merged.filter((x) => !localIds.has(String(x.id))).length;
 
+  const body = pickAccountField(
+    local && local.bodyProfile,
+    remote && remote.bodyProfile,
+    local && local.bodyUpdatedAt,
+    remote && remote.bodyUpdatedAt,
+    bodyProfileHasValues
+  );
+  const fit = pickAccountField(
+    local && local.fitPrefs,
+    remote && remote.fitPrefs,
+    local && local.fitPrefsUpdatedAt,
+    remote && remote.fitPrefsUpdatedAt,
+    fitPrefsHasValues
+  );
+  const fitPrefs = fit.value && typeof fit.value === "object" ? fit.value : {};
+  const itemsChangedLocal =
+    mergedKey !== localKey || JSON.stringify(merged) !== JSON.stringify(localItems);
+  const itemsChangedRemote =
+    mergedKey !== remoteKey || JSON.stringify(merged) !== JSON.stringify(remoteItems);
+  const bodyChangedLocal = !sameJson(body.value, local && local.bodyProfile);
+  const bodyChangedRemote = !sameJson(body.value, remote && remote.bodyProfile);
+  const fitChangedLocal = !sameJson(fitPrefs, (local && local.fitPrefs) || {});
+  const fitChangedRemote = !sameJson(fitPrefs, (remote && remote.fitPrefs) || {});
+
   return {
     items: merged,
     tombstones,
+    bodyProfile: body.value,
+    fitPrefs,
+    bodyUpdatedAt: body.updatedAt,
+    fitPrefsUpdatedAt: fit.updatedAt,
     // Cheap identity checks: a full deep compare on every sync is wasteful,
     // and the caller only needs to know whether a write is worth doing.
-    changedLocal: mergedKey !== localKey || JSON.stringify(merged) !== JSON.stringify(localItems),
-    changedRemote: mergedKey !== remoteKey || JSON.stringify(merged) !== JSON.stringify(remoteItems),
+    changedLocal: itemsChangedLocal || bodyChangedLocal || fitChangedLocal,
+    changedRemote: itemsChangedRemote || bodyChangedRemote || fitChangedRemote,
     stats: {
       local: localItems.length,
       remote: remoteItems.length,
@@ -228,16 +256,114 @@ export function mergeShelves(local, remote, options = {}) {
 }
 
 /**
+ * True when a body profile holds a real measurement or usual size.
+ * Empty objects, null, and mode-only leftovers do not count.
+ */
+export function bodyProfileHasValues(profile) {
+  if (!profile || typeof profile !== "object" || Array.isArray(profile)) return false;
+  const skip = new Set([
+    "updatedAt",
+    "measureMode",
+    "estimated",
+    "estimatedFields",
+    "firstSizeSource",
+  ]);
+  for (const [key, value] of Object.entries(profile)) {
+    if (skip.has(key)) continue;
+    if (value == null || value === "") continue;
+    if (typeof value === "object") {
+      if (Array.isArray(value)) continue;
+      if (Object.keys(value).length) return true;
+      continue;
+    }
+    return true;
+  }
+  return false;
+}
+
+/**
+ * True when shirt-wear defaults hold a saved choice or a dismiss.
+ */
+export function fitPrefsHasValues(prefs) {
+  if (!prefs || typeof prefs !== "object" || Array.isArray(prefs)) return false;
+  for (const pref of Object.values(prefs)) {
+    if (!pref || typeof pref !== "object") continue;
+    if (pref.dismissed) return true;
+    if (pref.length || pref.looseness) return true;
+  }
+  return false;
+}
+
+/**
+ * Pick one account field. A filled cloud copy wins over an empty local copy.
+ * A filled local copy wins over an empty cloud copy, then we push.
+ * When both hold values, the later stamp wins. Equal stamps keep local, so a
+ * save on this device after sign-in is not thrown away.
+ */
+export function pickAccountField(localVal, remoteVal, localAt, remoteAt, hasValues) {
+  const localReal = hasValues(localVal);
+  const remoteReal = hasValues(remoteVal);
+  const localStamp = ms(localAt);
+  const remoteStamp = ms(remoteAt);
+  if (remoteReal && !localReal) return { value: remoteVal, updatedAt: remoteStamp };
+  if (localReal && !remoteReal) return { value: localVal, updatedAt: localStamp };
+  if (!localReal && !remoteReal) {
+    return {
+      value: localVal != null ? localVal : remoteVal != null ? remoteVal : null,
+      updatedAt: Math.max(localStamp, remoteStamp),
+    };
+  }
+  if (remoteStamp > localStamp) return { value: remoteVal, updatedAt: remoteStamp };
+  return { value: localVal, updatedAt: localStamp };
+}
+
+function readFitPrefs(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const out = {};
+  for (const [category, pref] of Object.entries(raw)) {
+    if (!pref || typeof pref !== "object" || Array.isArray(pref)) continue;
+    out[String(category)] = {
+      length: pref.length || null,
+      looseness: pref.looseness || null,
+      dismissed: !!pref.dismissed,
+    };
+  }
+  return out;
+}
+
+function readBodyProfile(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  return raw;
+}
+
+function sameJson(a, b) {
+  return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+}
+
+/**
  * Build the document to send. Kept beside the merge so the shape has one
  * definition on the write side and one on the read side.
+ *
+ * `extras` carries the signed-in body and shirt-wear defaults. An older
+ * caller that omits extras still writes items and tombstones. A caller that
+ * has the extras must pass them, or the next write would drop them.
  */
-export function toShelfDoc(items, tombstones, now) {
-  return {
+export function toShelfDoc(items, tombstones, now, extras) {
+  const doc = {
     v: SHELF_DOC_VERSION,
     updatedAt: ms(now),
     items: Array.isArray(items) ? items : [],
     tombstones: tombstones || {},
   };
+  if (extras && typeof extras === "object") {
+    if ("bodyProfile" in extras) doc.bodyProfile = extras.bodyProfile ?? null;
+    if ("fitPrefs" in extras) {
+      doc.fitPrefs = extras.fitPrefs && typeof extras.fitPrefs === "object" ? extras.fitPrefs : {};
+    }
+    if ("bodyUpdatedAt" in extras) doc.bodyUpdatedAt = ms(extras.bodyUpdatedAt);
+    if ("fitPrefsUpdatedAt" in extras) doc.fitPrefsUpdatedAt = ms(extras.fitPrefsUpdatedAt);
+  }
+  return doc;
 }
 
 /**
@@ -263,10 +389,17 @@ export function parseShelfDoc(raw) {
       if (ms(at) > 0) tombstones[String(id)] = ms(at);
     }
   }
-  return {
+  const doc = {
     v,
     updatedAt: ms(raw.updatedAt),
     items: raw.items.filter((x) => x && typeof x === "object" && x.id),
     tombstones,
   };
+  // Pass these through so a later items-only rewrite can still see them.
+  // An older document that never stored them simply omits the keys.
+  if ("bodyProfile" in raw) doc.bodyProfile = readBodyProfile(raw.bodyProfile);
+  if ("fitPrefs" in raw) doc.fitPrefs = readFitPrefs(raw.fitPrefs) || {};
+  if ("bodyUpdatedAt" in raw) doc.bodyUpdatedAt = ms(raw.bodyUpdatedAt);
+  if ("fitPrefsUpdatedAt" in raw) doc.fitPrefsUpdatedAt = ms(raw.fitPrefsUpdatedAt);
+  return doc;
 }

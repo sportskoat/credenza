@@ -754,6 +754,24 @@ describe("DetailBody per-category fit preferences (5b/5c)", () => {
     onSaveFitPref: vi.fn(),
   });
 
+  it("does not ask how you wear shirts when shirts already have a saved choice", () => {
+    // The prompt stays away because the saved choice is on the card, not
+    // because the ask is hidden after the fact.
+    const handlers = prefHandlers({
+      shirt: { length: "regular", looseness: "oversized", dismissed: false },
+    });
+    render(body(item("fit-pref-loaded"), handlers));
+    expect(screen.queryByText("How do you wear shirts?")).toBe(null);
+  });
+
+  it("does not ask how you wear shirts when shirts were dismissed", () => {
+    const handlers = prefHandlers({
+      shirt: { length: null, looseness: null, dismissed: true },
+    });
+    render(body(item("fit-pref-dismissed-load"), handlers));
+    expect(screen.queryByText("How do you wear shirts?")).toBe(null);
+  });
+
   it("5b: asks once per category and never blocks the card", () => {
     const handlers = prefHandlers();
     const { container } = render(body(item("fit5b"), handlers));
