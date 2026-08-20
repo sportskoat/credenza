@@ -10,6 +10,17 @@ describe("usualSizeForItem + resolveDisplaySize without a chart", () => {
     expect(usualSizeForItem({ category: "shoes" }, profile)).toBe("10");
   });
 
+  it("does not put a shirt usual size on a cookie pack or other non-garment", () => {
+    const profile = { usualTops: "L", usualBottoms: "33", usualShoes: "10", usualSize: "L" };
+    expect(usualSizeForItem({ category: "other", title: "Cookie pack" }, profile)).toBe("");
+    expect(usualSizeForItem({ category: "", title: "Cookie pack" }, profile)).toBe("");
+    expect(usualSizeForItem({ category: "accessory", title: "Keychain" }, profile)).toBe("");
+    const cookie = resolveDisplaySize({ category: "other", title: "Cookie pack" }, profile);
+    expect(cookie.kind).toBe("none");
+    expect(cookie.value).toBe("");
+    expect(cookie.label).toBe("");
+  });
+
   it("does not invent AI size from body prefs alone", () => {
     const item = { category: "outerwear", title: "Arc jacket" };
     const profile = {
