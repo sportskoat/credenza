@@ -290,6 +290,15 @@ describe("§3 no-chart state", () => {
   // Spec step 3b (2026-08-08): keychains, wallets and bags have no sizes.
   // One calm line — Kyle picked the words. No chips, no helper, and no
   // chart-entry buttons in the Fit tab; those stay in Settings only.
+  it("other: a cookie pack does not inherit a shirt usual size", async () => {
+    renderBody(chartless({ category: "other", title: "Cookie pack" }), {
+      bodyProfile: { usualTops: "L", usualSize: "L" },
+    });
+
+    expect(screen.queryByText(/Your usual size is/)).toBe(null);
+    expect(screen.queryByText("Your usual size is Large.")).toBe(null);
+  });
+
   it.each(["accessory", "bag"])("%s: one calm line, nothing else", async (category) => {
     renderBody(chartless({ category }));
 

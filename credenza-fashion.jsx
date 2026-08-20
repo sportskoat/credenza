@@ -6026,9 +6026,11 @@ export function sizingChartReadCandidates(item, max = DETAIL_PHOTO_CAP) {
   return out;
 }
 
-// Garment categories only — shoes/hats/bags etc. don't map body cm → letter size.
+// Garment categories only — shoes/hats/bags/other etc. don't map body cm → letter size.
 // Declared here so resolveDisplaySize (and SizeRecommendation) can share it.
-export const SIZE_PICK_SKIP_CATEGORIES = new Set(["shoes", "hat", "bag", "accessory", "socks"]);
+// "other" is a snack, a cookie pack, or anything that is not clothes. It must
+// not inherit a shirt usual size.
+export const SIZE_PICK_SKIP_CATEGORIES = new Set(["shoes", "hat", "bag", "accessory", "socks", "other"]);
 
 // Letter tokens → spoken labels for the card face (Kyle: "SIZE: LARGE", not bare "L").
 const SIZE_WORD_LABELS = {
@@ -6240,22 +6242,21 @@ export function computeRecommendedSize(item, bodyProfile, fitPrefs = null, outco
 /**
  * Slot-specific usual size from body prefs (tops / bottoms / shoes).
  * Letter usualSize is garment-only — never used for shoes.
+ * Only a real garment slot may inherit a usual size. A cookie pack, an
+ * empty category, or any other non-garment must not show someone else's size.
  * @returns {string} empty when none
  */
 export function usualSizeForItem(item, bodyProfile) {
   if (!item || !bodyProfile) return "";
-  const slotKey =
-    item.category === "shoes"
-      ? "usualShoes"
-      : item.category === "pants" || item.category === "shorts"
-        ? "usualBottoms"
-        : "usualTops";
-  const genericOk = !SIZE_PICK_SKIP_CATEGORIES.has(item.category);
-  return String(
-    (genericOk || slotKey === "usualShoes" ? bodyProfile[slotKey] : "") ||
-      (genericOk ? bodyProfile.usualSize : "") ||
-      ""
-  ).trim();
+  const category = item.category;
+  if (category === "shoes") return String(bodyProfile.usualShoes || "").trim();
+  if (category === "pants" || category === "shorts") {
+    return String(bodyProfile.usualBottoms || bodyProfile.usualSize || "").trim();
+  }
+  if (category === "shirt" || category === "outerwear") {
+    return String(bodyProfile.usualTops || bodyProfile.usualSize || "").trim();
+  }
+  return "";
 }
 
 // Card face / grid size line (handoff turn 3 §4): the LABEL says who decided.
