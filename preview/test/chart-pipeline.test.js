@@ -92,6 +92,16 @@ describe("validateChartResult", () => {
     expect(validateChartResult("M: chest 116", parseSizeChart).ok).toBe(false);
     expect(validateChartResult("", parseSizeChart).ok).toBe(false);
   });
+
+  it("accepts a 44/46/48 seller table so a photo read can keep it", () => {
+    // Moody shorts: vision returns this text. The old parser dropped it, so
+    // Fit said the photo had no sizes and asked a person to type.
+    const text =
+      "44 裤长54 腰围68 臀围128\n46 裤长56 腰围72 臀围132\n48 裤长58 腰围76 臀围136";
+    const r = validateChartResult(text, parseSizeChart);
+    expect(r.ok).toBe(true);
+    expect(r.chart.rows.map((row) => row.size)).toEqual(["44", "46", "48"]);
+  });
 });
 
 describe("detectTableDirection", () => {

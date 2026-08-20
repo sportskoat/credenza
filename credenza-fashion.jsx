@@ -1024,14 +1024,27 @@ export function priceLabelShort(item) {
 //   table:    "Size  Chest  Length\nS 110 68\nM 114 70"
 // parseSizeChart normalizes both into rows keyed by size token.
 
-// Letter sizes plus pants waists (26–40). Free-size (均码/F) counts too.
-const SIZE_TOKEN_SRC = "(?:XXS|XS|S|M|L|XL|XXL|XXXL|[2-5]XL|F|均码|2[6-9]|3\\d|40)";
+// Letter sizes, pants waists (26–40), and EU/IT clothing sizes (42–58).
+// Rick Owens and similar runs print 44/46/48. The old ceiling was 40, so a
+// real seller table of those sizes never parsed. Fit then said the photo
+// had no sizes, and a person had to type the table by hand (Kyle 2026-08-20,
+// Weidian 7243654306 Moody shorts). Free-size (均码/F) counts too.
+const SIZE_TOKEN_SRC = "(?:XXS|XS|S|M|L|XL|XXL|XXXL|[2-5]XL|F|均码|2[6-9]|[3-4]\\d|5[0-8])";
 // A token must stand alone: separator (or string edge) before, separator after.
 // The lookahead kills false hits like "M65", "300g", "30-day".
 const SIZE_MENTION_RE = new RegExp(
   "(?:^|[\\s,;·|/（(\\[>])(" + SIZE_TOKEN_SRC + ")(?=[\\s码:：,，;·|/）)\\]<]|$)",
   "gm"
 );
+// A number that sits after a measurement label is a VALUE, not a size name.
+// "腰围 44" is a waist. "44 腰围68" is size 44. Same trap as "1/2Waist 38"
+// (Kyle 2026-07-30) once 42–58 entered the token list.
+const MEASURE_LABEL_BEFORE_RE =
+  /(?:半胸|1\/2\s*胸|½\s*胸|1\/2\s*chest|half[\s-]*chest|pit[\s-]*to[\s-]*pit|半腰|1\/2\s*腰|½\s*腰|1\/2\s*waist|half[\s-]*waist|半臀|1\/2\s*臀|½\s*臀|1\/2\s*hip|half[\s-]*hip|胸围|胸寛|胸宽|chest|bust|肩宽|肩寛|shoulder|袖长|袖長|sleeve|腰围|腰圍|waist|臀围|臀圍|hip|裤长|褲長|pants?\s*length|trouser\s*length|衣长|衣長|length)\s*[:：]?\s*$/i;
+function mentionAfterMeasureLabel(src, start) {
+  const before = String(src || "").slice(Math.max(0, start - 24), start);
+  return MEASURE_LABEL_BEFORE_RE.test(before);
+}
 // A cm value: 2–3 whole digits, optionally one or two decimals. Seller charts
 // print half-centimetres constantly ("袖长 24.5"), and reading that as 24 lost
 // half a centimetre on every such column (Kyle 2026-07-29 — his sleeve read
@@ -1119,13 +1132,17 @@ export function parseSizeChart(text) {
   SIZE_MENTION_RE.lastIndex = 0;
   let m;
   while ((m = SIZE_MENTION_RE.exec(src))) allMentions.push({ size: m[1], end: m.index + m[0].length, start: m.index });
-  // A numeric size token (26–40) also matches a measurement VALUE, and on a
+  // A numeric size token (26–58) also matches a measurement VALUE, and on a
   // shorts chart it did: "1/2Waist 38" made 38 the size name and swallowed the
   // waist column with it (Kyle 2026-07-30 — the app then read three sizes
-  // called 36, 38 and 40 with no waist at all). When the chart already names
-  // two or more letter sizes, the numbers are measurements, not size names.
-  const letterMentions = allMentions.filter((x) => !/^\d+$/.test(x.size));
-  const mentions = letterMentions.length >= 2 ? letterMentions : allMentions;
+  // called 36, 38 and 40 with no waist at all). Drop a number that sits after
+  // a measurement label. When the chart already names two or more letter
+  // sizes, the remaining numbers are measurements, not size names.
+  const valueSafeMentions = allMentions.filter(
+    (x) => !/^\d+$/.test(x.size) || !mentionAfterMeasureLabel(src, x.start)
+  );
+  const letterMentions = valueSafeMentions.filter((x) => !/^\d+$/.test(x.size));
+  const mentions = letterMentions.length >= 2 ? letterMentions : valueSafeMentions;
   for (let i = 0; i < mentions.length; i++) {
     const seg = src.slice(mentions[i].end, i + 1 < mentions.length ? mentions[i + 1].start : undefined);
     const row = { size: mentions[i].size.toUpperCase() };

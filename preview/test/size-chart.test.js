@@ -192,6 +192,41 @@ describe("parseSizeChart", () => {
     expect(chart.rows[1]).toMatchObject({ size: "32", waist: 81, hip: 107, pantsLength: 106 });
   });
 
+  // Kyle 2026-08-20, Weidian 7243654306 Moody shorts. The seller table is
+  // 44 / 46 / 48. The photo reader found the table, then the parser dropped
+  // every row because size names stopped at 40. Fit said the photo had no
+  // sizes. A person typed the same numbers into S/M/L and Fit said Take Large.
+  it("reads an EU clothing-size shorts table (44/46/48)", () => {
+    const chart = parseSizeChart(
+      "44 裤长54 腰围68 臀围128\n46 裤长56 腰围72 臀围132\n48 裤长58 腰围76 臀围136"
+    );
+    expect(chart).not.toBeNull();
+    expect(chart.rows.map((r) => r.size)).toEqual(["44", "46", "48"]);
+    expect(chart.rows[0]).toMatchObject({ size: "44", pantsLength: 54, waist: 68, hip: 128 });
+    expect(chart.rows[2]).toMatchObject({ size: "48", pantsLength: 58, waist: 76, hip: 136 });
+  });
+
+  it("reads the same EU run from a positional table", () => {
+    const chart = parseSizeChart(
+      "尺码 裤长 腰围 臀围\n44 54 68 128\n46 56 72 132\n48 58 76 136"
+    );
+    expect(chart).not.toBeNull();
+    expect(chart.rows.map((r) => r.size)).toEqual(["44", "46", "48"]);
+    expect(chart.rows[1]).toMatchObject({ size: "46", pantsLength: 56, waist: 72, hip: 132 });
+  });
+
+  it("reads an English labeled 44/46/48 chart a person could type", () => {
+    const chart = parseSizeChart(
+      "44: waist 68, pants length 54, hip 128\n46: waist 72, pants length 56, hip 132\n48: waist 76, pants length 58, hip 136"
+    );
+    expect(chart.rows.map((r) => r.size)).toEqual(["44", "46", "48"]);
+    expect(chart.rows[0]).toMatchObject({ waist: 68, pantsLength: 54, hip: 128 });
+  });
+
+  it("does not treat a measurement value 44 as a size name", () => {
+    expect(parseSizeChart("腰围 44 臀围 68\n腰围 46 臀围 72")).toBeNull();
+  });
+
   it("parses positional tables with a header line", () => {
     const chart = parseSizeChart(
       "Size  Chest  Length  Shoulder\nS     108    66      46\nM     112    68      48\nL     116    70      50"
