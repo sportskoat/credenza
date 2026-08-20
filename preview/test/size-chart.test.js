@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyFitPreference, easeRoomClause, effectiveBodyProfile, fitSummarySentence, formatMeasure, loosenessNudge, meantToSitClause, measureFromStorage, measureToStorage, migrateSleeveMeasurements, normalizeHalfChestRows, parseSizeChart, prescriptionSentence, recommendSize, resolveDisplaySize, serializeSizeChart, sizeChartTextFor, sleeveStyle, usualSizeForItem } from "../../credenza-fashion.jsx";
+import { applyFitPreference, computeRecommendedSize, easeRoomClause, effectiveBodyProfile, fitSummarySentence, formatMeasure, loosenessNudge, meantToSitClause, measureFromStorage, measureToStorage, migrateSleeveMeasurements, normalizeHalfChestRows, parseSizeChart, prescriptionSentence, recommendSize, resolveDisplaySize, serializeSizeChart, sizeChartTextFor, sleeveStyle, usualSizeForItem } from "../../credenza-fashion.jsx";
 
 describe("usualSizeForItem + resolveDisplaySize without a chart", () => {
   it("maps tops / bottoms / shoes slots", () => {
@@ -49,6 +49,57 @@ describe("usualSizeForItem + resolveDisplaySize without a chart", () => {
     expect(display.kind).toBe("usual");
     expect(display.label).toBe("YOUR USUAL");
     expect(display.isRec).toBe(false);
+  });
+});
+
+describe("computeRecommendedSize after a body change", () => {
+  // Kyle 2026-08-20: Settings chest 47.8 → 41, but a Stussy hoodie kept
+  // XXL because computeRecommendedSize returned the stored letter.
+  const chartText =
+    "M: chest 112, shoulder 46, length 70\nL: chest 116, shoulder 48, length 72\nXL: chest 120, shoulder 50, length 74\nXXL: chest 128, shoulder 54, length 78";
+  const hoodie = {
+    category: "outerwear",
+    title: "Stussy hoodie",
+    sizeNotes: chartText,
+    recommendedSize: "XXL",
+  };
+  const oldChest = { chest: 121.4 };
+  const newChest = { chest: 104.1 };
+
+  it("redoes the chart math from the new body, not the stored letter", () => {
+    const liveFromOld = computeRecommendedSize({ ...hoodie, recommendedSize: "" }, oldChest);
+    expect(liveFromOld).toBe("XXL");
+
+    const liveFromNew = computeRecommendedSize({ ...hoodie, recommendedSize: "" }, newChest);
+    expect(liveFromNew).not.toBe("XXL");
+
+    const fromStoredLetter = computeRecommendedSize(hoodie, newChest);
+    expect(fromStoredLetter).toBe(liveFromNew);
+    expect(fromStoredLetter).not.toBe("XXL");
+
+    const display = resolveDisplaySize(hoodie, newChest);
+    expect(display.kind).toBe("rec");
+    expect(display.size).toBe(liveFromNew);
+    expect(display.size).not.toBe("XXL");
+  });
+
+  it("lets a size typed on the card win", () => {
+    const display = resolveDisplaySize({ ...hoodie, size: "L" }, newChest);
+    expect(display.kind).toBe("user");
+    expect(display.size).toBe("L");
+  });
+
+  it("uses a usual size only when the listing has no seller chart", () => {
+    const withChart = resolveDisplaySize(hoodie, { ...newChest, usualTops: "S" });
+    expect(withChart.kind).toBe("rec");
+    expect(withChart.size).not.toBe("S");
+
+    const noChart = resolveDisplaySize(
+      { category: "outerwear", title: "Stussy hoodie", usualTops: "S" },
+      { ...newChest, usualTops: "S" }
+    );
+    expect(noChart.kind).toBe("usual");
+    expect(noChart.size).toBe("S");
   });
 });
 

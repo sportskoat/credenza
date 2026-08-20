@@ -6221,7 +6221,8 @@ export function computeRecommendedSize(item, bodyProfile, fitPrefs = null, outco
   // chart text must not label the card "AI size" (usual-size fallback path).
   const chart = parseSizeChart(sizeChartTextFor(item));
   if (!chart) return null;
-  if (item.recommendedSize) return String(item.recommendedSize).trim() || null;
+  // A stored recommendedSize is an old snapshot. Redo the math from the
+  // current body. A size typed on the card (item.size) still wins later.
   const catPref =
     fitPrefs && item.category && fitPrefs[item.category]
       ? fitPrefs[item.category]
