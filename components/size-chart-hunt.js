@@ -62,7 +62,10 @@ const WEAK_POOL_SCORE = 50;
 // read while the real chart waited one slot deeper (#39, item 7804652156).
 // The notice never enters the pool now, and every v2 stamp earns one fresh
 // hunt — so this item unsticks on its next open after the deploy.
-export const CHART_HUNT_VERSION = 3;
+// v4: the parser now reads EU/IT size names 42–58. A v3 stamp could hide a
+// real 44/46/48 chart the photo already held (Kyle 2026-08-20, Moody shorts
+// 7243654306). Every v3 stamp earns one fresh hunt.
+export const CHART_HUNT_VERSION = 4;
 export function chartHuntFingerprint(item) {
   if (!item || typeof item !== "object") return "";
   const http = (list) =>
