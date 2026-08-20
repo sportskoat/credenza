@@ -277,4 +277,27 @@ describe("createShelfPusher", () => {
     await pusher.flush();
     expect(JSON.parse(f.calls[0].init.body).data.items).toHaveLength(2);
   });
+
+  it("sends body measurements and shirt-wear defaults with the cards", async () => {
+    const f = fakeFetch({ status: 201, body: null });
+    const pusher = createShelfPusher({
+      getState: () => ({
+        items: [card("a")],
+        tombstones: {},
+        bodyProfile: { chest: 104.1 },
+        fitPrefs: { shirt: { length: "regular", looseness: "oversized", dismissed: false } },
+        bodyUpdatedAt: T0 + 1,
+        fitPrefsUpdatedAt: T0 + 2,
+      }),
+      delay: 0,
+      now: T0,
+      ...opts(f),
+    });
+    await pusher.flush();
+    const data = JSON.parse(f.calls[0].init.body).data;
+    expect(data.bodyProfile).toEqual({ chest: 104.1 });
+    expect(data.fitPrefs.shirt.looseness).toBe("oversized");
+    expect(data.bodyUpdatedAt).toBe(T0 + 1);
+    expect(data.fitPrefsUpdatedAt).toBe(T0 + 2);
+  });
 });

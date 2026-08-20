@@ -15,10 +15,13 @@ import {
   SHELF_DOC_VERSION,
   TOMBSTONE_TTL_MS,
   addTombstones,
+  bodyProfileHasValues,
   clearTombstones,
+  fitPrefsHasValues,
   itemStamp,
   mergeShelves,
   parseShelfDoc,
+  pickAccountField,
   pickItem,
   sweepTombstones,
   toShelfDoc,
@@ -260,6 +263,133 @@ describe("the document on the wire", () => {
     });
     expect(doc.items).toHaveLength(1);
     expect(doc.tombstones).toEqual({ a: T0 });
+  });
+
+  it("round-trips body measurements and shirt-wear defaults", () => {
+    const body = { chest: 104.1, height: 180 };
+    const fitPrefs = { shirt: { length: "regular", looseness: "oversized", dismissed: false } };
+    const doc = toShelfDoc([card("1", T0)], {}, T0 + 5, {
+      bodyProfile: body,
+      fitPrefs,
+      bodyUpdatedAt: T0 + 2,
+      fitPrefsUpdatedAt: T0 + 3,
+    });
+    const back = parseShelfDoc(JSON.parse(JSON.stringify(doc)));
+    expect(back.bodyProfile).toEqual(body);
+    expect(back.fitPrefs).toEqual(fitPrefs);
+    expect(back.bodyUpdatedAt).toBe(T0 + 2);
+    expect(back.fitPrefsUpdatedAt).toBe(T0 + 3);
+  });
+
+  it("keeps an items-only document readable", () => {
+    // An older write never stored these keys. The parser must still accept
+    // the shelf, and must not invent an empty body that would wipe the login.
+    const back = parseShelfDoc({ v: 1, items: [card("1", T0)], updatedAt: T0 });
+    expect(back.items).toHaveLength(1);
+    expect(back.bodyProfile).toBeUndefined();
+    expect(back.fitPrefs).toBeUndefined();
+  });
+});
+
+describe("account body and shirt defaults — filled cloud wins over empty local", () => {
+  const shirtPref = { shirt: { length: "regular", looseness: "oversized", dismissed: false } };
+
+  it("names a filled body and a saved or dismissed shirt default", () => {
+    expect(bodyProfileHasValues(null)).toBe(false);
+    expect(bodyProfileHasValues({})).toBe(false);
+    expect(bodyProfileHasValues({ measureMode: "body" })).toBe(false);
+    expect(bodyProfileHasValues({ chest: 104.1 })).toBe(true);
+    expect(fitPrefsHasValues({})).toBe(false);
+    expect(fitPrefsHasValues({ shirt: { length: null, looseness: null, dismissed: false } })).toBe(
+      false
+    );
+    expect(fitPrefsHasValues(shirtPref)).toBe(true);
+    expect(fitPrefsHasValues({ shirt: { length: null, looseness: null, dismissed: true } })).toBe(
+      true
+    );
+  });
+
+  it("a guest or empty local does not wipe a filled account", () => {
+    const remote = {
+      items: [card("1", T0)],
+      bodyProfile: { chest: 104.1 },
+      fitPrefs: shirtPref,
+      bodyUpdatedAt: T0,
+      fitPrefsUpdatedAt: T0,
+    };
+    const local = { items: [], tombstones: {}, bodyProfile: null, fitPrefs: {} };
+    const out = mergeShelves(local, remote, { now: T0 + 100 });
+    expect(out.bodyProfile).toEqual({ chest: 104.1 });
+    expect(out.fitPrefs).toEqual(shirtPref);
+    expect(out.changedLocal).toBe(true);
+    expect(out.changedRemote).toBe(false);
+  });
+
+  it("a filled local keeps and will push when the account has none", () => {
+    const local = {
+      items: [card("1", T0)],
+      bodyProfile: { chest: 104.1 },
+      fitPrefs: shirtPref,
+      bodyUpdatedAt: T0 + 50,
+      fitPrefsUpdatedAt: T0 + 50,
+    };
+    const remote = { items: [card("1", T0)] };
+    const out = mergeShelves(local, remote, { now: T0 + 100 });
+    expect(out.bodyProfile).toEqual({ chest: 104.1 });
+    expect(out.fitPrefs).toEqual(shirtPref);
+    expect(out.changedRemote).toBe(true);
+  });
+
+  it("an older items-only write does not drop a filled local body", () => {
+    const local = {
+      items: [card("1", T0)],
+      bodyProfile: { chest: 104.1 },
+      fitPrefs: shirtPref,
+      bodyUpdatedAt: T0,
+      fitPrefsUpdatedAt: T0,
+    };
+    const remote = { items: [card("1", T0), card("2", T0)] };
+    const out = mergeShelves(local, remote, { now: T0 + 100 });
+    expect(out.bodyProfile).toEqual({ chest: 104.1 });
+    expect(out.fitPrefs).toEqual(shirtPref);
+  });
+
+  it("a newer save on this device keeps over an older account copy", () => {
+    const local = {
+      items: [card("1", T0)],
+      bodyProfile: { chest: 104.1 },
+      bodyUpdatedAt: T0 + 500,
+    };
+    const remote = {
+      items: [card("1", T0)],
+      bodyProfile: { chest: 121.4 },
+      bodyUpdatedAt: T0,
+    };
+    const out = mergeShelves(local, remote, { now: T0 + 600 });
+    expect(out.bodyProfile).toEqual({ chest: 104.1 });
+  });
+
+  it("a newer account copy reloads onto this device", () => {
+    const local = {
+      items: [card("1", T0)],
+      bodyProfile: { chest: 121.4 },
+      bodyUpdatedAt: T0,
+    };
+    const remote = {
+      items: [card("1", T0)],
+      bodyProfile: { chest: 104.1 },
+      bodyUpdatedAt: T0 + 500,
+    };
+    const out = mergeShelves(local, remote, { now: T0 + 600 });
+    expect(out.bodyProfile).toEqual({ chest: 104.1 });
+    expect(out.changedLocal).toBe(true);
+  });
+
+  it("pickAccountField keeps a local save when stamps match", () => {
+    const local = { chest: 104.1 };
+    const remote = { chest: 121.4 };
+    const out = pickAccountField(local, remote, T0, T0, bodyProfileHasValues);
+    expect(out.value).toEqual(local);
   });
 });
 

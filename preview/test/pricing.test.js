@@ -419,10 +419,14 @@ describe("the page only sells what is built", () => {
     // which would tell somebody who lost a phone that their cards are gone.
     const app = read("credenza-fashion.jsx");
     // The pull effect gates on signedIn + canPersist, with no plan check.
-    expect(app).toContain("if (!signedIn || !canPersist || syncedOnceRef.current) return;");
-    // The push effect adds isProPlan. If that ever drops, the page is wrong.
+    // Prefs must be in before the pull, so an empty first paint cannot wipe
+    // a filled account body.
     expect(app).toContain(
-      "if (!signedIn || !isProPlan || !canPersist || !syncedOnceRef.current) return;"
+      "if (!signedIn || !canPersist || !preferencesHydrated || syncedOnceRef.current) return;"
+    );
+    // The card push effect adds isProPlan. If that ever drops, the page is wrong.
+    expect(app).toContain(
+      "if (!signedIn || !isProPlan || !canPersist || !pullDoneRef.current) return;"
     );
     const deviceRow = page.slice(page.indexOf('<th scope="row">Your shelf on more than one device</th>'));
     expect(deviceRow.slice(0, 200), "the free side of the device row").toContain("Restore only");

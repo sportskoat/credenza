@@ -675,6 +675,37 @@ describe("FitReadTable in the detail body", () => {
     }
   });
 
+  it("reloads YOURS chest when the account body changes", () => {
+    // Same signed-in session: Settings typed 41in, the Fit card still showed
+    // 47.8in until the saved account body was applied to the card.
+    const { container, rerender } = renderBody(fitItem(), {
+      bodyProfile: { chest: 121.4, shoulder: 45, height: 180, weight: 75 },
+      measureUnits: "in",
+    });
+    const yours = () => {
+      const row = [...container.querySelectorAll(".cz-fitread-row")].find((el) =>
+        /Chest/i.test(el.querySelector(".cz-fitread-name")?.textContent || "")
+      );
+      return row ? row.querySelector(".cz-fitread-yours")?.textContent : "";
+    };
+    expect(yours()).toContain("47.8");
+
+    rerender(
+      <DetailBody
+        item={fitItem()}
+        bodyProfile={{ chest: 104.1, shoulder: 45, height: 180, weight: 75 }}
+        measureUnits="in"
+        onSaveEdit={vi.fn()}
+        onOpen={vi.fn()}
+        onAttachPhoto={vi.fn()}
+        onRemovePhoto={vi.fn()}
+        onOpenSizes={vi.fn()}
+      />
+    );
+    expect(yours()).toContain("41");
+    expect(yours()).not.toContain("47.8");
+  });
+
   it("marks the tick amber in the soft zone and red past it", () => {
     const soft = renderBody(fitItem(), {
       bodyProfile: { chest: 105, shoulder: 45, height: 180, weight: 75 },

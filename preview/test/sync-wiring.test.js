@@ -83,15 +83,24 @@ describe("pull is free, push is Pro", () => {
   // The restore story must never be paywalled. Losing a phone should not mean
   // losing a shelf because the subscription lapsed.
   it("pulls for any signed-in account, with no plan check", () => {
-    const effect = app.slice(app.indexOf("if (!signedIn || !canPersist || syncedOnceRef.current) return;"));
-    const body = effect.slice(0, effect.indexOf("}, [signedIn, canPersist]);"));
+    const effect = app.slice(
+      app.indexOf("if (!signedIn || !canPersist || !preferencesHydrated || syncedOnceRef.current) return;")
+    );
+    const body = effect.slice(0, effect.indexOf("}, [signedIn, canPersist, preferencesHydrated]);"));
     expect(body).toContain("await pullShelf()");
     expect(body).not.toContain("isProPlan");
   });
 
-  it("gates only the continuous push on Pro", () => {
-    expect(app).toContain("if (!signedIn || !isProPlan || !canPersist || !syncedOnceRef.current) return;");
+  it("gates only the continuous card push on Pro", () => {
+    expect(app).toContain("if (!signedIn || !isProPlan || !canPersist || !pullDoneRef.current) return;");
     expect(app).toContain("pusherRef.current?.schedule();");
+  });
+
+  it("pushes body and shirt defaults for any signed-in account after the pull", () => {
+    expect(app).toContain(
+      "if (!signedIn || !canPersist || !pullDoneRef.current) return;"
+    );
+    expect(app).toContain("bodyProfile, fitPrefs, bodyUpdatedAt, fitPrefsUpdatedAt");
   });
 
   it("still saves the merge once for a free account", () => {
@@ -104,11 +113,19 @@ describe("the shelf is never clobbered by a bad pull", () => {
   // A pull that fails or returns junk must change nothing. This is the single
   // most destructive thing sync could get wrong.
   it("acts only on a document it could read", () => {
-    expect(app).toContain('if (remote.status !== "ok" && remote.status !== "empty") return;');
+    expect(app).toContain('if (remote.status !== "ok" && remote.status !== "empty")');
+    expect(app).toContain("pullDoneRef.current = true");
   });
 
   it("never pushes before the pull has merged", () => {
-    expect(app).toContain("!syncedOnceRef.current) return;");
+    expect(app).toContain("!pullDoneRef.current) return;");
+  });
+
+  it("carries body and shirt defaults on the shelf it sends", () => {
+    expect(app).toContain("bodyProfile");
+    expect(app).toContain("fitPrefs");
+    expect(sync).toContain("state.bodyProfile");
+    expect(sync).toContain("state.fitPrefs");
   });
 
   it("flushes when the tab hides, where unload does not fire on a phone", () => {
