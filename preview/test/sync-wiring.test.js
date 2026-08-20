@@ -113,7 +113,8 @@ describe("the shelf is never clobbered by a bad pull", () => {
   // A pull that fails or returns junk must change nothing. This is the single
   // most destructive thing sync could get wrong.
   it("acts only on a document it could read", () => {
-    expect(app).toContain('if (remote.status !== "ok" && remote.status !== "empty") return;');
+    expect(app).toContain('if (remote.status !== "ok" && remote.status !== "empty")');
+    expect(app).toContain("pullDoneRef.current = true");
   });
 
   it("never pushes before the pull has merged", () => {

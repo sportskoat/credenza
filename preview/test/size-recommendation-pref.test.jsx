@@ -1,8 +1,10 @@
 // The shirt prompt stays away because the saved choice loads, not because
 // the ask is later hidden. SizeRecommendation.needsPrefAsk reads fitPref.
-import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, render, screen } from "@testing-library/react";
 import SizeRecommendation from "../../components/SizeRecommendation.jsx";
+
+afterEach(() => cleanup());
 
 const SHIRT = {
   id: "shirt-pref",
